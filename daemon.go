@@ -68,8 +68,8 @@ func Daemon() error {
 	// Initialize process attributes
 	attr := &os.ProcAttr{
 		Files: []*os.File{devnull, wstdout, wstderr},
-		Sys: &syscall.SysProcAttr{
-			Setsid: true,
+		Sys:   &syscall.SysProcAttr{
+			//Setsid: true,
 		},
 	}
 

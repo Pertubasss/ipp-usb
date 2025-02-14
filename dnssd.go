@@ -118,6 +118,15 @@ func (services *DNSSdServices) Add(srv DNSSdSvcInfo) {
 	*services = append(*services, srv)
 }
 
+type dnssdSysdep struct {
+	log      *Logger // Device's logger
+	instance string  // Service Instance Name
+	fqdn     string  // Host's fully-qualified domain name
+	//client     *C.AvahiClient     // Avahi client
+	//egroup     *C.AvahiEntryGroup // Avahi entry group
+	statusChan chan DNSSdStatus // Status notifications channel
+}
+
 // DNSSdPublisher represents a DNS-SD service publisher
 // One publisher may publish multiple services unser the
 // same Service Instance Name
@@ -181,6 +190,18 @@ func NewDNSSdPublisher(log *Logger,
 	}
 }
 
+func newDnssdSysdep(log *Logger, instance string,
+	services DNSSdServices) *dnssdSysdep {
+
+	sysdep := &dnssdSysdep{
+		log:        log,
+		instance:   instance,
+		statusChan: make(chan DNSSdStatus, 10),
+	}
+
+	return sysdep
+}
+
 // Publish all services
 func (publisher *DNSSdPublisher) Publish() error {
 	instance := publisher.instance(0)
@@ -200,7 +221,7 @@ func (publisher *DNSSdPublisher) Unpublish() {
 	close(publisher.fin)
 	publisher.finDone.Wait()
 
-	publisher.sysdep.Halt()
+	//publisher.sysdep.Halt()
 
 	publisher.Log.Info('-', "DNS-SD: %s: removed", publisher.instance(0))
 }
@@ -248,58 +269,5 @@ func (publisher *DNSSdPublisher) goroutine() {
 	timer := time.NewTimer(time.Hour)
 	timer.Stop()       // Not ticking now
 	defer timer.Stop() // And cleanup at return
-
-	var err error
-	var suffix int
-
-	instance := publisher.instance(0)
-	for {
-		fail := false
-
-		select {
-		case <-publisher.fin:
-			return
-
-		case status := <-publisher.sysdep.Chan():
-			switch status {
-			case DNSSdSuccess:
-				publisher.Log.Info(' ', "DNS-SD: %s: published", instance)
-				if instance != publisher.DevState.DNSSdOverride {
-					publisher.DevState.DNSSdOverride = instance
-					publisher.DevState.Save()
-				}
-
-			case DNSSdCollision:
-				publisher.Log.Error(' ', "DNS-SD: %s: name collision",
-					instance)
-				suffix++
-				fallthrough
-
-			case DNSSdFailure:
-				publisher.Log.Error(' ', "DNS-SD: %s: publishing failed",
-					instance)
-
-				fail = true
-				publisher.sysdep.Halt()
-
-			default:
-				publisher.Log.Error(' ', "DNS-SD: %s: unknown event %s",
-					instance, status)
-			}
-
-		case <-timer.C:
-			instance = publisher.instance(suffix)
-			publisher.sysdep = newDnssdSysdep(publisher.Log,
-				instance, publisher.Services)
-
-			if err != nil {
-				publisher.Log.Error('!', "DNS-SD: %s: %s", instance, err)
-				fail = true
-			}
-		}
-
-		if fail {
-			timer.Reset(DNSSdRetryInterval)
-		}
-	}
+	_ = publisher.instance(0)
 }

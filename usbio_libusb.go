@@ -19,7 +19,7 @@ import (
 	"unsafe"
 )
 
-// #cgo pkg-config: libusb-1.0
+// #cgo LDFLAGS: -L"C:/Git/ippusb/ipp-usb/libs" -llibusb-1.0
 // #include <libusb.h>
 //
 // int libusbHotplugCallback (libusb_context *ctx, libusb_device *device,

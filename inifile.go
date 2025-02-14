@@ -92,13 +92,13 @@ func OpenIniFileWithRecType(path string) (ini *IniFile, err error) {
 }
 
 // Lock manages file lock on underlying disk file
-func (ini *IniFile) Lock(cmd FileLockCmd) error {
-	return FileLock(ini.file, cmd)
+func (ini *IniFile) Lock() error {
+	return nil //FileLock(ini.file, cmd)
 }
 
 // Unlock releases file lock
 func (ini *IniFile) Unlock() error {
-	return FileUnlock(ini.file)
+	return nil //FileUnlock(ini.file)
 }
 
 // Close the .INI file

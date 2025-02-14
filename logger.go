@@ -141,9 +141,9 @@ func (l *Logger) ToConsole() *Logger {
 
 // ToColorConsole redirects log to console with ANSI colors
 func (l *Logger) ToColorConsole() *Logger {
-	if logIsAtty(os.Stdout) {
-		l.outhook = logColorConsoleWrite
-	}
+	//if logIsAtty(os.Stdout) {
+	//	l.outhook = logColorConsoleWrite
+	//}
 
 	return l.ToConsole()
 }

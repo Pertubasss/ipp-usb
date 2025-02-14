@@ -118,7 +118,10 @@ func LoadUsedPorts() (ports map[int]string) {
 
 // load performs an actual work of loading the DevState file
 func (state *DevState) load(ini *IniFile) error {
-	err := ini.Lock(FileLockWait)
+
+	var err error
+
+	err = nil //:= ini.Lock(FileLockWait)
 	if err == nil {
 		defer ini.Unlock()
 	}
@@ -201,14 +204,14 @@ func (state *DevState) save(data []byte) error {
 		return err
 	}
 
-	err = FileLock(f, FileLockWait)
-	if err != nil {
-		f.Close()
-		return err
-	}
+	//err = FileLock(f, FileLockWait)
+	//if err != nil {
+	//		f.Close()
+	//		return err
+	//	}
 
 	_, err = f.Write(data)
-	FileUnlock(f)
+	//FileUnlock(f)
 
 	if err != nil {
 		f.Close()
