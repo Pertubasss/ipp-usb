@@ -113,11 +113,15 @@ func NewUsbTransport(desc UsbDeviceDesc) (*UsbTransport, error) {
 
 	var maxconn uint
 
+	transport.log.Debug(' ', "Antes BlackList")
+
 	// Check for blacklisted device
 	if transport.quirks.GetBlacklist() {
 		err = ErrBlackListed
 		goto ERROR
 	}
+
+	transport.log.Debug(' ', "Antes GetInitReset")
 
 	// Hard-reset the device, if needed
 	if transport.quirks.GetInitReset() == QuirkResetHard {
@@ -125,11 +129,14 @@ func NewUsbTransport(desc UsbDeviceDesc) (*UsbTransport, error) {
 		dev.Reset()
 	}
 
+	transport.log.Debug(' ', "Antes Configure")
+
 	// Configure the device
-	err = dev.Configure(desc)
-	if err != nil {
-		goto ERROR
-	}
+	// err = dev.Configure(desc)
+	// if err != nil {
+	// 	transport.log.Debug(' ', "deu ruim no Configure")
+	// 	goto ERROR
+	// }
 
 	// Open connections
 	maxconn = transport.quirks.GetUsbMaxInterfaces()

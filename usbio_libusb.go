@@ -468,10 +468,10 @@ func UsbOpenDevice(desc UsbDeviceDesc) (*UsbDevHandle, error) {
 //   - detach kernel driver
 func (devhandle *UsbDevHandle) Configure(desc UsbDeviceDesc) error {
 	// Detach kernel driver
-	err := (*UsbDevHandle)(devhandle).detachKernelDriver()
-	if err != nil {
-		return err
-	}
+	// err := (*UsbDevHandle)(devhandle).detachKernelDriver()
+	// if err != nil {
+	// 	return err
+	// }
 
 	// Set configuration
 	rc := C.libusb_set_configuration(
