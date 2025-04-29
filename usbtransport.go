@@ -148,7 +148,8 @@ func NewUsbTransport(desc UsbDeviceDesc) (*UsbTransport, error) {
 		var conn *usbConn
 		conn, err = transport.openUsbConn(i, ifaddr, transport.quirks)
 		if err != nil {
-			goto ERROR
+			// goto ERROR
+			continue
 		}
 
 		transport.connList = append(transport.connList, conn)

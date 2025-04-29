@@ -111,7 +111,8 @@ func NewDevice(desc UsbDeviceDesc) (*Device, error) {
 
 	dev.Log.Debug(' ', "apos Begin")
 
-	uri := fmt.Sprintf("http://localhost:%d/main.asp?Lang=en-us", dev.State.HTTPPort)
+	//uri := fmt.Sprintf("http://localhost:%d/main.asp?Lang=en-us", dev.State.HTTPPort)
+	uri := fmt.Sprintf("http://localhost:%d/web/guest/es/websys/webArch/mainFrame.cgi", dev.State.HTTPPort)
 	value, err := dev.HTTPClient.Get(uri)
 
 	defer value.Body.Close()
