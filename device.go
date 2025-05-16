@@ -14,7 +14,8 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"os"
+	// "regexp"
+	// "strings"
 )
 
 // Device object brings all parts together, namely:
@@ -33,8 +34,23 @@ type Device struct {
 	Log            *Logger         // Device's logger
 }
 
-// NewDevice creates new Device object
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 func NewDevice(desc UsbDeviceDesc) (*Device, error) {
+	dev := &Device{
+		UsbAddr: desc.UsbAddr,
+	}
+
+	return dev, nil
+}
+
+// SendIppUsbRequest creates new Device object
+func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) {
 	dev := &Device{
 		UsbAddr: desc.UsbAddr,
 	}
@@ -44,20 +60,13 @@ func NewDevice(desc UsbDeviceDesc) (*Device, error) {
 	var err error
 	var info UsbDeviceInfo
 	var listener net.Listener
-	var ippinfo *IppPrinterInfo
-	var dnssdName string
-	var dnssdServices DNSSdServices
 	var log *LogMessage
-	var hwid string
 	var quirks Quirks
-	var httpstatus int
-	var canPrint bool
-	var canScan bool
 
 	// Create USB transport
 	dev.UsbTransport, err = NewUsbTransport(desc)
 	if err != nil {
-		os.Exit(0) //goto ERROR
+		return nil, err
 	}
 
 	fmt.Println("apos NewUsbTransport")
@@ -72,12 +81,8 @@ func NewDevice(desc UsbDeviceDesc) (*Device, error) {
 
 	// Obtain device info and derived information.
 	info = dev.UsbTransport.UsbDeviceInfo()
-	hwid = fmt.Sprintf("%4.4x&%4.4x", info.Vendor, info.Product)
 
 	fmt.Println("apos UsbDeviceInfo")
-
-	canPrint = info.BasicCaps&UsbIppBasicCapsPrint != 0
-	canScan = info.BasicCaps&UsbIppBasicCapsScan != 0
 
 	// Load persistent state
 	dev.State = LoadDevState(info.Ident(), info.Comment())
@@ -92,7 +97,7 @@ func NewDevice(desc UsbDeviceDesc) (*Device, error) {
 	// Create net.Listener
 	listener, err = dev.State.HTTPListen()
 	if err != nil {
-		os.Exit(0) //goto ERROR
+		return nil, err
 	}
 
 	fmt.Println("apos HTTPListen")
@@ -112,192 +117,35 @@ func NewDevice(desc UsbDeviceDesc) (*Device, error) {
 	dev.Log.Debug(' ', "apos Begin")
 
 	//uri := fmt.Sprintf("http://localhost:%d/main.asp?Lang=en-us", dev.State.HTTPPort)
-	uri := fmt.Sprintf("http://localhost:%d/web/guest/es/websys/webArch/mainFrame.cgi", dev.State.HTTPPort)
-	value, err := dev.HTTPClient.Get(uri)
 
-	defer value.Body.Close()
+	var responses []string
+	for _, request := range requests {
+		// uri := fmt.Sprintf("http://localhost:%d/web/guest/es/websys/webArch/getStatus.cgi", dev.State.HTTPPort)
+		uri := fmt.Sprintf(request, dev.State.HTTPPort)
+		fmt.Printf("Uri: %s", uri)
+		value, err := dev.HTTPClient.Get(uri)
 
-	// Decode IPP response message
-	respData, err := ioutil.ReadAll(value.Body)
-	if err != nil {
-		err = fmt.Errorf("HTTP: %s", err)
-		os.Exit(0)
-	}
-
-	fmt.Println(string(respData))
-
-	os.Exit(0)
-
-	ippinfo, httpstatus, err = IppService(log, &dnssdServices,
-		dev.State.HTTPPort, info, dev.UsbTransport.Quirks(),
-		dev.HTTPClient)
-
-	dev.Log.Debug(' ', "TESTE DE LOG --------")
-	fmt.Println("Teste printLN")
-
-	if err != nil {
-		dev.Log.Debug('!', "IPP: %s", err)
-		fmt.Println(err)
-
-		if httpstatus != 0 && canPrint && quirks.GetInitRetryPartial() {
-			dev.Log.Begin().
-				Info(' ', "Printer not ready (HTTP status %d)",
-					httpstatus).
-				Info(' ', "Retrying due to the %q quirk",
-					QuirkNmInitRetryPartial).
-				Commit()
-
-			err = ErrPartialInit
-			goto ERROR
-		}
-	}
-
-	log.Flush()
-
-	os.Exit(0)
-
-	if dev.UsbTransport.TimeoutExpired() {
-		err = ErrInitTimedOut
-		goto ERROR
-	}
-
-	// Obtain DNS-SD name
-	if ippinfo != nil {
-		dnssdName = ippinfo.DNSSdName
-	} else {
-		dnssdName = info.DNSSdName()
-	}
-
-	// Update device state, if name changed
-	if dnssdName != dev.State.DNSSdName {
-		dev.State.DNSSdName = dnssdName
-		dev.State.DNSSdOverride = dnssdName
-		dev.State.Save()
-	}
-
-	// Obtain DNS-SD info for eSCL
-	httpstatus, err = EsclService(log, &dnssdServices, dev.State.HTTPPort, info,
-		ippinfo, dev.HTTPClient)
-
-	if err != nil {
-		dev.Log.Error('!', "ESCL: %s", err)
-
-		if httpstatus != 0 && canScan && quirks.GetInitRetryPartial() {
-			dev.Log.Begin().
-				Info(' ', "Scanner not ready (HTTP status %d)",
-					httpstatus).
-				Info(' ', "Retrying due to the %q quirk",
-					QuirkNmInitRetryPartial).
-				Commit()
-
-			err = ErrPartialInit
-			goto ERROR
-		}
-	}
-
-	log.Flush()
-
-	if dev.UsbTransport.TimeoutExpired() {
-		err = ErrInitTimedOut
-		goto ERROR
-	}
-
-	// Update IPP service advertising for scanner presence
-	if ippinfo != nil {
-		if ippSvc := &dnssdServices[ippinfo.IppSvcIndex]; err == nil {
-			ippSvc.Txt.Add("Scan", "T")
-		} else {
-			ippSvc.Txt.Add("Scan", "F")
-		}
-	}
-
-	// Skip the device, if it cannot do something useful
-	//
-	// Some devices (so far, only HP-rebranded Samsung devices
-	// known to have such a defect) offer 7/1/4 interfaces, but
-	// actually provide no functionality behind these interfaces
-	// and respond with `HTTP 404 Not found` to all the HTTP
-	// requests sent to USB
-	//
-	// ipp-usb ignores such devices to let a chance for
-	// legacy/proprietary drivers to work with them
-	if len(dnssdServices) == 0 {
-		err = ErrUnusable
-		goto ERROR
-	}
-
-	// Add common TXT records:
-	//   - usb_SER=VCF9192281  ; Device USB serial number
-	//   - usb_HWID=0482&069d  ; Its vendor and device ID
-	for i := range dnssdServices {
-		svc := &dnssdServices[i]
-		svc.Txt.Add("usb_SER", info.SerialNumber)
-		svc.Txt.Add("usb_HWID", hwid)
-	}
-
-	// Advertise Web service. Assume it always exists
-	dnssdServices.Add(DNSSdSvcInfo{Type: "_http._tcp", Port: dev.State.HTTPPort})
-
-	// Advertise service with the following parameters:
-	//   Instance: "BBPP", where BB and PP are bus and port numbers in hex
-	//   Type:     "_ipp-usb._tcp"
-	//
-	// The purpose of this advertising is to help legacy drivers to
-	// easily check for devices, handled by ipp-usb
-	//
-	// See the following for details:
-	//     https://github.com/OpenPrinting/ipp-usb/issues/28
-	dnssdServices.Add(DNSSdSvcInfo{
-		Instance: fmt.Sprintf("%.2X%.2x", desc.Bus, info.PortNum),
-		Type:     "_ipp-usb._tcp",
-		Port:     dev.State.HTTPPort,
-		Loopback: true,
-	})
-
-	// Enable handling incoming requests
-	dev.UsbTransport.SetTimeout(0)
-	dev.HTTPProxy.Enable()
-
-	// Start DNS-SD publisher
-	for _, svc := range dnssdServices {
-		dev.Log.Debug('>', "%s: %s TXT record:", dnssdName, svc.Type)
-		for _, txt := range svc.Txt {
-			dev.Log.Debug(' ', "  %s=%s", txt.Key, txt.Value)
-		}
-	}
-
-	if Conf.DNSSdEnable {
-		dev.DNSSdPublisher = NewDNSSdPublisher(dev.Log, dev.State,
-			dnssdServices)
-		err = dev.DNSSdPublisher.Publish()
 		if err != nil {
-			goto ERROR
+			err = fmt.Errorf("HTTP Error for request: %s - error: %s: %s", request, err)
+			return nil, err
 		}
-	}
 
-	return dev, nil
+		defer value.Body.Close()
 
-ERROR:
-	fmt.Println("ERROR:")
-	fmt.Println(err)
-	if dev.HTTPProxy != nil {
-		dev.HTTPProxy.Close()
-	}
-
-	if dev.UsbTransport != nil {
-		reset := true
-		switch err {
-		case ErrUnusable, ErrPartialInit:
-			reset = false
+		// Decode IPP response message
+		respData, err := ioutil.ReadAll(value.Body)
+		if err != nil {
+			err = fmt.Errorf("HTTP Error for request: %s - error: %s: %s", request, err)
+			return nil, err
 		}
-		dev.UsbTransport.Close(reset)
+
+		responses = append(responses, string(respData))
+		fmt.Println("Requisição concluida com sucesso para: %s", request)
+		// dev.Log.Debug(' ', "vai printar o retorno do equipamento:")
+		// fmt.Println(string(respData))
 	}
 
-	if listener != nil {
-		listener.Close()
-	}
-
-	return nil, err
+	return responses, nil
 }
 
 // Shutdown gracefully shuts down the device. If provided context

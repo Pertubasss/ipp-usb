@@ -12,142 +12,92 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"sort"
+	"strconv"
 )
 
 const usageText = `Usage:
-	 %s mode [options]
- 
- Modes are:
-	 standalone  - run forever, automatically discover IPP-over-USB
-				   devices and serve them all
-	 udev        - like standalone, but exit when last IPP-over-USB
-				   device is disconnected
-	 debug       - logs duplicated on console, -bg option is
-				   ignored
-	 check       - check configuration and exit
-	 status      - print ipp-usb status and exit
- 
- Options are
-	 -bg         - run in background (ignored in debug mode)
- `
-
-// RunMode represents the program run mode
-type RunMode int
-
-// Run modes:
-//
-//	RunStandalone - run forever, automatically discover IPP-over-USB
-//	                devices and serve them all
-//	RunUdev       - like RunStandalone, but exit when last IPP-over-USB
-//	                device is disconnected
-//	RunDebug      - logs duplicated on console, -bg option is ignored
-//	RunCheck      - check configuration and exit
-//	RunStatus     - print ipp-usb status and exit
-const (
-	RunDefault RunMode = iota
-	RunStandalone
-	RunUdev
-	RunDebug
-	RunCheck
-	RunStatus
-)
-
-// String returns RunMode name
-func (m RunMode) String() string {
-	switch m {
-	case RunDefault:
-		return "default"
-	case RunStandalone:
-		return "standalone"
-	case RunUdev:
-		return "udev"
-	case RunDebug:
-		return "debug"
-	case RunCheck:
-		return "check"
-	case RunStatus:
-		return "status"
-	}
-
-	return fmt.Sprintf("unknown (%d)", int(m))
-}
-
-// RunParameters represents the program run parameters
-type RunParameters struct {
-	Mode       RunMode // Run mode
-	Background bool    // Run in background
-}
+	product <product> vendor <vendor> requests size [<request1>, <request2>...]`
 
 // usage prints detailed usage and exits
 func usage() {
-	fmt.Printf(usageText, os.Args[0])
+	fmt.Printf(usageText)
 	os.Exit(0)
 }
 
-// usage_error prints usage error and exits
-func usageError(format string, args ...interface{}) {
-	if format != "" {
-		fmt.Printf(format+"\n", args...)
-	}
-
-	fmt.Printf("Try %s -h for more information\n", os.Args[0])
-	os.Exit(1)
+type UsbArgs struct {
+	Product  uint16
+	Vendor   uint16
+	Requests []string
 }
 
-// parseArgv parses program parameters. In a case of usage error,
-// it prints a error message and exits
-func parseArgv() (params RunParameters) {
-	// Catch panics to log
-	defer func() {
-		v := recover()
-		if v != nil {
-			Log.Panic(v)
-		}
-	}()
+func parseArgv() *UsbArgs {
+	var vendor uint16
+	var product uint16
+	var requests []string
 
-	// For now, default mode is debug mode. It may change in a future
-	params.Mode = RunDebug
+	for i := 0; i < len(os.Args)-2; i++ {
+		switch os.Args[i] {
+		case "vendor":
+			if i+1 < len(os.Args) {
+				i++
+				value, err := strconv.ParseUint(os.Args[i], 10, 16)
+				if err != nil {
+					fmt.Println("Erro: valor para 'vendor' inválido.")
+					usage()
+				}
 
-	modes := 0
-	for _, arg := range os.Args[1:] {
-		switch arg {
-		case "-h", "-help", "--help":
-			usage()
-		case "standalone":
-			params.Mode = RunStandalone
-			modes++
-		case "udev":
-			params.Mode = RunUdev
-			modes++
-		case "debug":
-			params.Mode = RunDebug
-			modes++
-		case "check":
-			params.Mode = RunCheck
-			modes++
-		case "status":
-			params.Mode = RunStatus
-			modes++
-		case "-bg":
-			params.Background = true
+				vendor = uint16(value)
+			} else {
+				fmt.Println("Erro: valor para 'vendor' não fornecido.")
+			}
+		case "product":
+			if i+1 < len(os.Args) {
+				i++
+				value, err := strconv.ParseUint(os.Args[i], 10, 16)
+				if err != nil {
+					fmt.Println("Erro: valor para 'product' inválido.")
+					usage()
+				}
+
+				product = uint16(value)
+			} else {
+				fmt.Println("Erro: valor para 'product' não fornecido.")
+			}
+		case "requests":
+			if i+1 < len(os.Args) {
+				i++
+				size, err := strconv.ParseUint(os.Args[i], 10, 16)
+				if err != nil || size < 1 || i+int(size) >= len(os.Args) {
+					fmt.Printf("Erro: valor size para 'requests' inválido. Valor: %s\n", os.Args[i])
+					usage()
+				}
+				i++
+				// requests size [<request1>, <request2>...]
+				for j := i; j < i+int(size); j++ {
+					requests = append(requests, os.Args[j])
+				}
+			}
 		default:
-			usageError("Invalid argument %s", arg)
+			continue
 		}
 	}
 
-	if modes > 1 {
-		usageError("Conflicting run modes")
+	if vendor == 0 || product == 0 || len(requests) == 0 {
+		fmt.Printf("Erro: valor para 'product': %d ou 'vendor': %d ou requests estão vazios.\n", vendor, product)
+		usage()
 	}
 
-	if params.Mode == RunDebug {
-		params.Background = false
+	fmt.Printf("Vendor: %d, Product: %d, Requests: %v\n", vendor, product, requests)
+
+	usbArgs := &UsbArgs{
+		Vendor:   vendor,
+		Product:  product,
+		Requests: requests,
 	}
 
-	return
+	return usbArgs
 }
 
-// printStatus prints status of running ipp-usb daemon, if any
 func printStatus() {
 	// Fetch status
 	text, err := StatusRetrieve()
@@ -174,11 +124,15 @@ func printStatus() {
 
 // The main function
 func main() {
+	fmt.Println("Iniciando o programa...")
+
 	var err error
 
+	usbArgs := parseArgv()
 	// In RunCheck mode, list IPP-over-USB devices
 	// If we are here, configuration is OK
 	InitLog.Info(0, "Configuration files: OK")
+	InitLog.logger.SetLevels(1)
 
 	var descs map[UsbAddr]UsbDeviceDesc
 	err = UsbInit(true)
@@ -192,29 +146,28 @@ func main() {
 		InitLog.Info(0, "No IPP over USB devices found")
 	} else {
 		// Repack into the sorted list
-		var list []UsbDeviceDesc
-		var buf bytes.Buffer
+		// var list []UsbDeviceDesc
+		// var buf bytes.Buffer
 
 		for _, desc := range descs {
-			NewDevice(desc)
-			list = append(list, desc)
-		}
-		sort.Slice(list, func(i, j int) bool {
-			return list[i].UsbAddr.Less(list[j].UsbAddr)
-		})
+			if len(desc.IfDescs) > 0 {
+				vendor := desc.IfDescs[0].Vendor
+				product := desc.IfDescs[0].Product
 
-		InitLog.Info(0, "IPP over USB devices:")
-		InitLog.Info(0, " Num  Device              Vndr:Prod  Model")
-		for i, dev := range list {
-			buf.Reset()
-			fmt.Fprintf(&buf, "%3d. %s", i+1, dev.UsbAddr)
-			if info, err := dev.GetUsbDeviceInfo(); err == nil { //não está capturando corretamente no windows para o equipamento Ricoh
-				fmt.Fprintf(&buf, "  %4.4x:%.4x  %q",
-					info.Vendor, info.Product, info.MfgAndProduct)
+				fmt.Printf("USB Vendor: %d, Product: %d\n", vendor, product)
+
+				if (vendor == usbArgs.Vendor) && (product == usbArgs.Product) {
+					responses, err := SendIppUsbRequest(desc, usbArgs.Requests)
+
+					if err != nil {
+						fmt.Printf("Erro ao coletar dados: %s.\n", err)
+					} else {
+						for _, response := range responses {
+							fmt.Printf("Resposta: %s.\n", response)
+						}
+					}
+				}
 			}
-
-			InitLog.Info(0, " %s", buf.String())
 		}
 	}
-
 }
