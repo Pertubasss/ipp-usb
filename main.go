@@ -124,15 +124,15 @@ func printStatus() {
 
 // The main function
 func main() {
-	fmt.Println("Iniciando o programa...")
+	fmt.Println("Iniciando a captura via http...")
 
 	var err error
 
 	usbArgs := parseArgv()
 	// In RunCheck mode, list IPP-over-USB devices
 	// If we are here, configuration is OK
-	InitLog.Info(0, "Configuration files: OK")
-	InitLog.logger.SetLevels(1)
+	//InitLog.Info(0, "Configuration files: OK")
+	InitLog.logger.SetLevels(4)
 
 	var descs map[UsbAddr]UsbDeviceDesc
 	err = UsbInit(true)
@@ -154,7 +154,7 @@ func main() {
 				vendor := desc.IfDescs[0].Vendor
 				product := desc.IfDescs[0].Product
 
-				fmt.Printf("USB Vendor: %d, Product: %d\n", vendor, product)
+				//fmt.Printf("USB Vendor: %d, Product: %d\n", vendor, product)
 
 				if (vendor == usbArgs.Vendor) && (product == usbArgs.Product) {
 					responses, err := SendIppUsbRequest(desc, usbArgs.Requests)

@@ -496,7 +496,7 @@ func (msg *LogMessage) HTTPRequest(level LogLevel, prefix byte,
 	rq.Body = struct{ io.ReadCloser }{http.NoBody}
 
 	// Write it to the log
-	msg.Add(level, prefix, "HTTP[%3.3d]: HTTP request header:", session)
+	// msg.Add(level, prefix, "HTTP[%3.3d]: HTTP request header:", session)
 
 	buf := &bytes.Buffer{}
 	rq.Write(buf)
@@ -538,8 +538,8 @@ func (msg *LogMessage) HTTPResponse(level LogLevel, prefix byte,
 	}
 
 	// Write it to the log
-	msg.Add(level, prefix, "HTTP[%3.3d]: HTTP response header:", session)
-	msg.Add(level, prefix, "  %s %s", rsp.Proto, rsp.Status)
+	// msg.Add(level, prefix, "HTTP[%3.3d]: HTTP response header:", session)
+	// msg.Add(level, prefix, "  %s %s", rsp.Proto, rsp.Status)
 
 	keys := make([]string, 0, len(hdr))
 
@@ -561,7 +561,7 @@ func (msg *LogMessage) HTTPResponse(level LogLevel, prefix byte,
 func (msg *LogMessage) HTTPRqParams(level LogLevel, prefix byte,
 	session int, rq *http.Request) *LogMessage {
 
-	msg.Add(level, prefix, "HTTP[%3.3d]: %s %s", session, rq.Method, rq.URL)
+	// msg.Add(level, prefix, "HTTP[%3.3d]: %s %s", session, rq.Method, rq.URL)
 
 	return msg
 }
@@ -570,8 +570,8 @@ func (msg *LogMessage) HTTPRqParams(level LogLevel, prefix byte,
 func (msg *LogMessage) HTTPRspStatus(level LogLevel, prefix byte,
 	session int, rq *http.Request, rsp *http.Response) *LogMessage {
 
-	msg.Add(level, prefix, "HTTP[%3.3d]: %s %s - %s",
-		session, rq.Method, rq.URL, rsp.Status)
+	// msg.Add(level, prefix, "HTTP[%3.3d]: %s %s - %s",
+	// 	session, rq.Method, rq.URL, rsp.Status)
 
 	return msg
 }
@@ -580,7 +580,7 @@ func (msg *LogMessage) HTTPRspStatus(level LogLevel, prefix byte,
 func (msg *LogMessage) HTTPError(prefix byte,
 	session int, format string, args ...interface{}) *LogMessage {
 
-	msg.Error(prefix, "HTTP[%3.3d]: %s", session, fmt.Sprintf(format, args...))
+	// msg.Error(prefix, "HTTP[%3.3d]: %s", session, fmt.Sprintf(format, args...))
 
 	return msg
 }
@@ -589,7 +589,7 @@ func (msg *LogMessage) HTTPError(prefix byte,
 func (msg *LogMessage) HTTPDebug(prefix byte,
 	session int, format string, args ...interface{}) *LogMessage {
 
-	msg.Debug(prefix, "HTTP[%3.3d]: %s", session, fmt.Sprintf(format, args...))
+	// msg.Debug(prefix, "HTTP[%3.3d]: %s", session, fmt.Sprintf(format, args...))
 
 	return msg
 }

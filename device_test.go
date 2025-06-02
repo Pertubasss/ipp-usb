@@ -3,12 +3,11 @@
  * Copyright (C) 2020 and up by Alexander Pevzner (pzz@apevzner.com)
  * See LICENSE for license terms and conditions
  *
- * Device object brings all parts togethe
+ * Device object brings all parts togethe*/
 
 package main_test
 
-import(
-	"github.com/OpenPrinting/ipp-usb"
+import (
 	"testing"
 )
 

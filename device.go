@@ -55,12 +55,12 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 		UsbAddr: desc.UsbAddr,
 	}
 
-	fmt.Println("Teste printLN")
+	// fmt.Println("Teste printLN")
 
 	var err error
 	var info UsbDeviceInfo
 	var listener net.Listener
-	var log *LogMessage
+	// var log *LogMessage
 	var quirks Quirks
 
 	// Create USB transport
@@ -69,25 +69,25 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 		return nil, err
 	}
 
-	fmt.Println("apos NewUsbTransport")
+	// fmt.Println("apos NewUsbTransport")
 
 	// Obtain quirks
 	quirks = dev.UsbTransport.Quirks()
 
-	fmt.Println("apos Quirks")
+	// fmt.Println("apos Quirks")
 
 	// Obtain device's logger
-	dev.Log = dev.UsbTransport.Log()
+	// dev.Log = dev.UsbTransport.Log()
 
 	// Obtain device info and derived information.
 	info = dev.UsbTransport.UsbDeviceInfo()
 
-	fmt.Println("apos UsbDeviceInfo")
+	// fmt.Println("apos UsbDeviceInfo")
 
 	// Load persistent state
 	dev.State = LoadDevState(info.Ident(), info.Comment())
 
-	fmt.Println("apos LoadDevState")
+	// fmt.Println("apos LoadDevState")
 
 	// Create HTTP client for local queries
 	dev.HTTPClient = &http.Client{
@@ -100,7 +100,7 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 		return nil, err
 	}
 
-	fmt.Println("apos HTTPListen")
+	// fmt.Println("apos HTTPListen")
 
 	// Configure transport for init
 	dev.UsbTransport.SetTimeout(quirks.GetInitTimeout())
@@ -108,13 +108,13 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 	// Create HTTP server
 	dev.HTTPProxy = NewHTTPProxy(dev.Log, listener, dev.UsbTransport)
 
-	fmt.Println("apos NewHTTPProxy")
+	// fmt.Println("apos NewHTTPProxy")
 
 	// Obtain DNS-SD info for IPP
-	log = dev.Log.Begin()
-	defer log.Commit()
+	// log = dev.Log.Begin()
+	// defer log.Commit()
 
-	dev.Log.Debug(' ', "apos Begin")
+	// dev.Log.Debug(' ', "apos Begin")
 
 	//uri := fmt.Sprintf("http://localhost:%d/main.asp?Lang=en-us", dev.State.HTTPPort)
 
@@ -135,7 +135,7 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 		// Decode IPP response message
 		respData, err := ioutil.ReadAll(value.Body)
 		if err != nil {
-			err = fmt.Errorf("HTTP Error for request: %s - error: %s: %s", request, err)
+			err = fmt.Errorf("Decode IPP response messagem: %s - error: %s: %s", request, err)
 			return nil, err
 		}
 
