@@ -157,7 +157,19 @@ func main() {
 				//fmt.Printf("USB Vendor: %d, Product: %d\n", vendor, product)
 
 				if (vendor == usbArgs.Vendor) && (product == usbArgs.Product) {
-					responses, err := SendIppUsbRequest(desc, usbArgs.Requests)
+
+					var responses []string
+					for retry := 0; retry < 3; retry++ {
+						responses, err = SendIppUsbRequest(desc, usbArgs.Requests)
+
+						if err == nil {
+							break
+						}
+
+						if err != ErrUnusable && err != ErrPartialInit {
+							break
+						}
+					}
 
 					if err != nil {
 						fmt.Printf("Erro ao coletar dados: %s.\n", err)

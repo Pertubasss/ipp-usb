@@ -62,6 +62,7 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 	var listener net.Listener
 	// var log *LogMessage
 	var quirks Quirks
+	var responses []string
 
 	// Create USB transport
 	dev.UsbTransport, err = NewUsbTransport(desc)
@@ -81,6 +82,7 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 
 	// Obtain device info and derived information.
 	info = dev.UsbTransport.UsbDeviceInfo()
+	canPrint := info.BasicCaps&UsbIppBasicCapsPrint != 0
 
 	// fmt.Println("apos UsbDeviceInfo")
 
@@ -97,7 +99,7 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 	// Create net.Listener
 	listener, err = dev.State.HTTPListen()
 	if err != nil {
-		return nil, err
+		goto ERROR
 	}
 
 	// fmt.Println("apos HTTPListen")
@@ -118,7 +120,6 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 
 	//uri := fmt.Sprintf("http://localhost:%d/main.asp?Lang=en-us", dev.State.HTTPPort)
 
-	var responses []string
 	for _, request := range requests {
 		// uri := fmt.Sprintf("http://localhost:%d/web/guest/es/websys/webArch/getStatus.cgi", dev.State.HTTPPort)
 		uri := fmt.Sprintf(request, dev.State.HTTPPort)
@@ -127,7 +128,20 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 
 		if err != nil {
 			err = fmt.Errorf("HTTP Error for request: %s - error: %s: %s", request, err)
-			return nil, err
+			canRetry := value.StatusCode != 0 || ErrIsEOF(err)
+
+			if canRetry && canPrint && quirks.GetInitRetryPartial() {
+				dev.Log.Begin().
+					Info(' ', "Printer not ready (HTTP status %d)",
+						value.StatusCode).
+					Info(' ', "Retrying due to the %q quirk",
+						QuirkNmInitRetryPartial).
+					Commit()
+
+				err = ErrPartialInit
+			}
+
+			goto ERROR
 		}
 
 		defer value.Body.Close()
@@ -136,7 +150,7 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 		respData, err := ioutil.ReadAll(value.Body)
 		if err != nil {
 			err = fmt.Errorf("Decode IPP response messagem: %s - error: %s: %s", request, err)
-			return nil, err
+			goto ERROR
 		}
 
 		responses = append(responses, string(respData))
@@ -146,6 +160,26 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 	}
 
 	return responses, nil
+
+ERROR:
+	if dev.HTTPProxy != nil {
+		dev.HTTPProxy.Close()
+	}
+
+	if dev.UsbTransport != nil {
+		reset := true
+		switch err {
+		case ErrUnusable, ErrPartialInit:
+			reset = false
+		}
+		dev.UsbTransport.Close(reset)
+	}
+
+	if listener != nil {
+		listener.Close()
+	}
+
+	return nil, err
 }
 
 // Shutdown gracefully shuts down the device. If provided context
