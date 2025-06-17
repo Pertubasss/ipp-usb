@@ -4,11 +4,10 @@
  * See LICENSE for license terms and conditions
  *
  * Device object brings all parts togethe
-
+ */
 package main_test
 
-import(
-	"github.com/OpenPrinting/ipp-usb"
+import (
 	"testing"
 )
 

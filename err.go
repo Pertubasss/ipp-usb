@@ -10,6 +10,8 @@ package main
 
 import (
 	"errors"
+	"io"
+	"net/url"
 )
 
 // Error values for ipp-usb
@@ -24,3 +26,11 @@ var (
 	ErrAccess       = errors.New("Access denied")
 	ErrPartialInit  = errors.New("Some parts of device not ready yet")
 )
+
+func ErrIsEOF(err error) bool {
+	if urlerr, ok := err.(*url.Error); ok {
+		return urlerr.Err == io.EOF
+	}
+
+	return err == io.EOF
+}

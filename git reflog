@@ -1,0 +1,12 @@
+[33m7ba6adf[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mminha-feature[m[33m)[m HEAD@{0}: reset: moving to HEAD~1
+[33m7cbd3ea[m HEAD@{1}: reset: moving to HEAD~1
+[33m723f23c[m[33m ([m[1;31morigin/minha-feature[m[33m)[m HEAD@{2}: pull: Fast-forward
+[33m7cbd3ea[m HEAD@{3}: checkout: moving from master to minha-feature
+[33m56e2696[m[33m ([m[1;32mmaster[m[33m)[m HEAD@{4}: checkout: moving from minha-feature to master
+[33m7cbd3ea[m HEAD@{5}: Branch: renamed refs/heads/master to refs/heads/minha-feature
+[33m7cbd3ea[m HEAD@{7}: commit: Comentado os logs
+[33m7ba6adf[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mminha-feature[m[33m)[m HEAD@{8}: commit: alterações anderson
+[33m33336b3[m HEAD@{9}: commit: open:
+[33m5799cb8[m HEAD@{10}: commit: Ajustado, funcionando
+[33m6996f34[m HEAD@{11}: commit: Ajustes para funcionar no windows
+[33m56e2696[m[33m ([m[1;32mmaster[m[33m)[m HEAD@{12}: clone: from https://github.com/OpenPrinting/ipp-usb.git

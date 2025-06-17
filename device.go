@@ -55,13 +55,14 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 		UsbAddr: desc.UsbAddr,
 	}
 
-	fmt.Println("Teste printLN")
+	//fmt.Println("Teste printLN")
 
 	var err error
 	var info UsbDeviceInfo
 	var listener net.Listener
-	var log *LogMessage
+	// var log *LogMessage
 	var quirks Quirks
+	var responses []string
 
 	// Create USB transport
 	dev.UsbTransport, err = NewUsbTransport(desc)
@@ -69,25 +70,26 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 		return nil, err
 	}
 
-	fmt.Println("apos NewUsbTransport")
+	// fmt.Println("apos NewUsbTransport")
 
 	// Obtain quirks
 	quirks = dev.UsbTransport.Quirks()
 
-	fmt.Println("apos Quirks")
+	// fmt.Println("apos Quirks")
 
 	// Obtain device's logger
 	dev.Log = dev.UsbTransport.Log()
 
 	// Obtain device info and derived information.
 	info = dev.UsbTransport.UsbDeviceInfo()
+	canPrint := info.BasicCaps&UsbIppBasicCapsPrint != 0
 
-	fmt.Println("apos UsbDeviceInfo")
+	// fmt.Println("apos UsbDeviceInfo")
 
 	// Load persistent state
 	dev.State = LoadDevState(info.Ident(), info.Comment())
 
-	fmt.Println("apos LoadDevState")
+	// fmt.Println("apos LoadDevState")
 
 	// Create HTTP client for local queries
 	dev.HTTPClient = &http.Client{
@@ -97,10 +99,10 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 	// Create net.Listener
 	listener, err = dev.State.HTTPListen()
 	if err != nil {
-		return nil, err
+		goto ERROR
 	}
 
-	fmt.Println("apos HTTPListen")
+	// fmt.Println("apos HTTPListen")
 
 	// Configure transport for init
 	dev.UsbTransport.SetTimeout(quirks.GetInitTimeout())
@@ -108,17 +110,16 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 	// Create HTTP server
 	dev.HTTPProxy = NewHTTPProxy(dev.Log, listener, dev.UsbTransport)
 
-	fmt.Println("apos NewHTTPProxy")
+	// fmt.Println("apos NewHTTPProxy")
 
 	// Obtain DNS-SD info for IPP
-	log = dev.Log.Begin()
-	defer log.Commit()
+	// log = dev.Log.Begin()
+	// defer log.Commit()
 
-	dev.Log.Debug(' ', "apos Begin")
+	// dev.Log.Debug(' ', "apos Begin")
 
 	//uri := fmt.Sprintf("http://localhost:%d/main.asp?Lang=en-us", dev.State.HTTPPort)
 
-	var responses []string
 	for _, request := range requests {
 		// uri := fmt.Sprintf("http://localhost:%d/web/guest/es/websys/webArch/getStatus.cgi", dev.State.HTTPPort)
 		uri := fmt.Sprintf(request, dev.State.HTTPPort)
@@ -126,26 +127,60 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 		value, err := dev.HTTPClient.Get(uri)
 
 		if err != nil {
-			err = fmt.Errorf("HTTP Error for request: %s - error: %s: %s", request, err)
-			return nil, err
-		}
+			err = fmt.Errorf("HTTP Error for request ...URI...: %s - error: %s: %s", request, err)
+			canRetry := ErrIsEOF(err)
 
-		defer value.Body.Close()
+			if canRetry && canPrint && quirks.GetInitRetryPartial() {
+				dev.Log.Begin().
+					Info(' ', "Printer not ready (HTTP status %d)",
+						value.StatusCode).
+					Info(' ', "Retrying due to the %q quirk",
+						QuirkNmInitRetryPartial).
+					Commit()
+
+				err = ErrPartialInit
+			}
+
+			goto ERROR
+		}
 
 		// Decode IPP response message
 		respData, err := ioutil.ReadAll(value.Body)
 		if err != nil {
 			err = fmt.Errorf("HTTP Error for request: %s - error: %s: %s", request, err)
-			return nil, err
+			goto ERROR
 		}
+
+		value.Body.Close()
 
 		responses = append(responses, string(respData))
 		fmt.Println("Requisição concluida com sucesso para: %s", request)
+		fmt.Println()
 		// dev.Log.Debug(' ', "vai printar o retorno do equipamento:")
 		// fmt.Println(string(respData))
 	}
 
 	return responses, nil
+
+ERROR:
+	if dev.HTTPProxy != nil {
+		dev.HTTPProxy.Close()
+	}
+
+	if dev.UsbTransport != nil {
+		reset := true
+		switch err {
+		case ErrUnusable, ErrPartialInit:
+			reset = false
+		}
+		dev.UsbTransport.Close(reset)
+	}
+
+	if listener != nil {
+		listener.Close()
+	}
+
+	return nil, err
 }
 
 // Shutdown gracefully shuts down the device. If provided context

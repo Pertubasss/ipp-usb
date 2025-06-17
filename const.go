@@ -15,7 +15,7 @@ import (
 const (
 	// DevInitTimeout specifies how much time to wait for
 	// device initialization
-	DevInitTimeout = 5 * time.Second
+	DevInitTimeout = 10 * time.Second
 
 	// DevShutdownTimeout specifies how much time to wait for
 	// device graceful shutdown

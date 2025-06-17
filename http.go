@@ -225,10 +225,10 @@ func (proxy *HTTPProxy) httpError(session int, w http.ResponseWriter, r *http.Re
 func (proxy *HTTPProxy) httpRedirect(session int, w http.ResponseWriter, r *http.Request,
 	status int, location *url.URL) {
 
-	proxy.log.Begin().
-		HTTPRqParams(LogDebug, '>', session, r).
-		HTTPRequest(LogTraceHTTP, '>', session, r).
-		Commit()
+	// proxy.log.Begin().
+	// 	HTTPRqParams(LogDebug, '>', session, r).
+	// 	HTTPRequest(LogTraceHTTP, '>', session, r).
+	// 	Commit()
 
 	w.Header().Set("Location", location.String())
 	w.WriteHeader(status)

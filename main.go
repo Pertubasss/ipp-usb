@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 )
 
@@ -122,6 +123,18 @@ func printStatus() {
 	}
 }
 
+func splitByLength(s string, size int) []string {
+	var result []string
+	for i := 0; i < len(s); i += size {
+		end := i + size
+		if end > len(s) {
+			end = len(s)
+		}
+		result = append(result, s[i:end])
+	}
+	return result
+}
+
 // The main function
 func main() {
 	fmt.Println("Iniciando o programa...")
@@ -131,7 +144,7 @@ func main() {
 	usbArgs := parseArgv()
 	// In RunCheck mode, list IPP-over-USB devices
 	// If we are here, configuration is OK
-	InitLog.Info(0, "Configuration files: OK")
+	// InitLog.Info(0, "Configuration files: OK")
 	InitLog.logger.SetLevels(1)
 
 	var descs map[UsbAddr]UsbDeviceDesc
@@ -154,7 +167,17 @@ func main() {
 				vendor := desc.IfDescs[0].Vendor
 				product := desc.IfDescs[0].Product
 
-				fmt.Printf("USB Vendor: %d, Product: %d\n", vendor, product)
+				exePath, err := os.Executable()
+				if err != nil {
+					fmt.Printf("Erro ao obter o caminho do executável: %s.\n", err)
+					return
+				}
+
+				// fmt.Printf("USB Vendor: %d, Product: %d\n", vendor, product)
+				dir := filepath.Dir(exePath) // Obtém o diretório do executável
+				filePath := filepath.Join(dir, "saida_do_go.txt")
+
+				fmt.Printf("diretorio: %s.\n", filePath)
 
 				if (vendor == usbArgs.Vendor) && (product == usbArgs.Product) {
 					responses, err := SendIppUsbRequest(desc, usbArgs.Requests)
@@ -163,7 +186,18 @@ func main() {
 						fmt.Printf("Erro ao coletar dados: %s.\n", err)
 					} else {
 						for _, response := range responses {
-							fmt.Printf("Resposta: %s.\n", response)
+							file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+							if err != nil {
+								panic(err)
+							}
+
+							// file.WriteString("teste\n\n")
+							file.WriteString(response + "\n")
+							file.WriteString(fmt.Sprintf("---REQUEST_\n"))
+
+							file.Close()
+
+							// fmt.Printf("Resposta: %s.\n", response)
 						}
 					}
 				}

@@ -378,6 +378,7 @@ func (msg *LogMessage) addBytes(level LogLevel, prefix byte, line []byte) *LogMe
 
 // appendLineBuf appends line buffer to msg.lines
 func (msg *LogMessage) appendLineBuf(buf *logLineBuf) {
+	return
 	if msg.parent == nil {
 		// Note, many threads may write to the root
 		// message simultaneously
@@ -409,6 +410,7 @@ func (msg *LogMessage) Error(prefix byte, format string, args ...interface{}) *L
 // Exit appends a LogError line to the message, flushes the message and
 // all its parents and terminates a program by calling os.Exit(1)
 func (msg *LogMessage) Exit(prefix byte, format string, args ...interface{}) {
+	return
 	if msg.logger.mode == loggerNoMode {
 		msg.logger.ToConsole()
 	}
@@ -496,7 +498,7 @@ func (msg *LogMessage) HTTPRequest(level LogLevel, prefix byte,
 	rq.Body = struct{ io.ReadCloser }{http.NoBody}
 
 	// Write it to the log
-	msg.Add(level, prefix, "HTTP[%3.3d]: HTTP request header:", session)
+	// msg.Add(level, prefix, "HTTP[%3.3d]: HTTP request header:", session)
 
 	buf := &bytes.Buffer{}
 	rq.Write(buf)
@@ -538,8 +540,8 @@ func (msg *LogMessage) HTTPResponse(level LogLevel, prefix byte,
 	}
 
 	// Write it to the log
-	msg.Add(level, prefix, "HTTP[%3.3d]: HTTP response header:", session)
-	msg.Add(level, prefix, "  %s %s", rsp.Proto, rsp.Status)
+	// msg.Add(level, prefix, "HTTP[%3.3d]: HTTP response header:", session)
+	// msg.Add(level, prefix, "  %s %s", rsp.Proto, rsp.Status)
 
 	keys := make([]string, 0, len(hdr))
 
@@ -561,7 +563,7 @@ func (msg *LogMessage) HTTPResponse(level LogLevel, prefix byte,
 func (msg *LogMessage) HTTPRqParams(level LogLevel, prefix byte,
 	session int, rq *http.Request) *LogMessage {
 
-	msg.Add(level, prefix, "HTTP[%3.3d]: %s %s", session, rq.Method, rq.URL)
+	// msg.Add(level, prefix, "HTTP[%3.3d]: %s %s", session, rq.Method, rq.URL)
 
 	return msg
 }
@@ -570,8 +572,8 @@ func (msg *LogMessage) HTTPRqParams(level LogLevel, prefix byte,
 func (msg *LogMessage) HTTPRspStatus(level LogLevel, prefix byte,
 	session int, rq *http.Request, rsp *http.Response) *LogMessage {
 
-	msg.Add(level, prefix, "HTTP[%3.3d]: %s %s - %s",
-		session, rq.Method, rq.URL, rsp.Status)
+	// msg.Add(level, prefix, "HTTP[%3.3d]: %s %s - %s",
+	// 	session, rq.Method, rq.URL, rsp.Status)
 
 	return msg
 }
@@ -580,7 +582,7 @@ func (msg *LogMessage) HTTPRspStatus(level LogLevel, prefix byte,
 func (msg *LogMessage) HTTPError(prefix byte,
 	session int, format string, args ...interface{}) *LogMessage {
 
-	msg.Error(prefix, "HTTP[%3.3d]: %s", session, fmt.Sprintf(format, args...))
+	// msg.Error(prefix, "HTTP[%3.3d]: %s", session, fmt.Sprintf(format, args...))
 
 	return msg
 }
@@ -589,7 +591,7 @@ func (msg *LogMessage) HTTPError(prefix byte,
 func (msg *LogMessage) HTTPDebug(prefix byte,
 	session int, format string, args ...interface{}) *LogMessage {
 
-	msg.Debug(prefix, "HTTP[%3.3d]: %s", session, fmt.Sprintf(format, args...))
+	// msg.Debug(prefix, "HTTP[%3.3d]: %s", session, fmt.Sprintf(format, args...))
 
 	return msg
 }
@@ -624,8 +626,8 @@ func (msg *LogMessage) LineWriter(level LogLevel, prefix byte) *LineWriter {
 
 // Commit message to the log
 func (msg *LogMessage) Commit() {
-	msg.Flush()
 	msg.free()
+	// msg.Flush()
 }
 
 // Flush message content to the log
@@ -635,6 +637,8 @@ func (msg *LogMessage) Commit() {
 // pointer remains valid. Message logical atomicity is not
 // preserved between flushes
 func (msg *LogMessage) Flush() {
+
+	return
 	// Lock the logger
 	msg.logger.lock.Lock()
 	defer msg.logger.lock.Unlock()

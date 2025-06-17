@@ -75,45 +75,45 @@ func NewUsbTransport(desc UsbDeviceDesc) (*UsbTransport, error) {
 		transport.info.MfgAndProduct)
 
 	// Write device info to the log
-	log := transport.log.Begin().
-		Nl(LogDebug).
-		Debug(' ', "===============================").
-		Info('+', "%s: opened %s", transport.addr, transport.info.ProductName).
-		Debug(' ', "Device info:").
-		Debug(' ', "  USB Port:      %d", transport.info.PortNum).
-		Debug(' ', "  Ident:         %s", transport.info.Ident()).
-		Debug(' ', "  Manufacturer:  %s", transport.info.Manufacturer).
-		Debug(' ', "  Product:       %s", transport.info.ProductName).
-		Debug(' ', "  SerialNumber:  %s", transport.info.SerialNumber).
-		Debug(' ', "  MfgAndProduct: %s", transport.info.MfgAndProduct).
-		Debug(' ', "  BasicCaps:     %s", transport.info.BasicCaps).
-		Nl(LogDebug)
+	// log := transport.log.Begin().
+	// 	Nl(LogDebug).
+	// 	Debug(' ', "===============================").
+	// 	Info('+', "%s: opened %s", transport.addr, transport.info.ProductName).
+	// 	Debug(' ', "Device info:").
+	// 	Debug(' ', "  USB Port:      %d", transport.info.PortNum).
+	// 	Debug(' ', "  Ident:         %s", transport.info.Ident()).
+	// 	Debug(' ', "  Manufacturer:  %s", transport.info.Manufacturer).
+	// 	Debug(' ', "  Product:       %s", transport.info.ProductName).
+	// 	Debug(' ', "  SerialNumber:  %s", transport.info.SerialNumber).
+	// 	Debug(' ', "  MfgAndProduct: %s", transport.info.MfgAndProduct).
+	// 	Debug(' ', "  BasicCaps:     %s", transport.info.BasicCaps).
+	// 	Nl(LogDebug)
 
-	transport.dumpQuirks(log)
-	log.Nl(LogDebug)
+	// transport.dumpQuirks(log)
+	// log.Nl(LogDebug)
 
-	transport.dumpUSBparams(log)
-	log.Nl(LogDebug)
+	// transport.dumpUSBparams(log)
+	// log.Nl(LogDebug)
 
-	log.Debug(' ', "USB interfaces:")
-	log.Debug(' ', "  Config Interface Alt Class SubClass Proto")
-	for _, ifdesc := range desc.IfDescs {
-		prefix := byte(' ')
-		if ifdesc.IsIppOverUsb() {
-			prefix = '*'
-		}
+	// log.Debug(' ', "USB interfaces:")
+	// log.Debug(' ', "  Config Interface Alt Class SubClass Proto")
+	// for _, ifdesc := range desc.IfDescs {
+	// 	prefix := byte(' ')
+	// 	if ifdesc.IsIppOverUsb() {
+	// 		prefix = '*'
+	// 	}
 
-		log.Debug(prefix,
-			"     %-3d     %-3d    %-3d %-3d    %-3d     %-3d",
-			ifdesc.Config, ifdesc.IfNum,
-			ifdesc.Alt, ifdesc.Class, ifdesc.SubClass, ifdesc.Proto)
-	}
-	log.Nl(LogDebug)
-	log.Commit()
+	// 	log.Debug(prefix,
+	// 		"     %-3d     %-3d    %-3d %-3d    %-3d     %-3d",
+	// 		ifdesc.Config, ifdesc.IfNum,
+	// 		ifdesc.Alt, ifdesc.Class, ifdesc.SubClass, ifdesc.Proto)
+	// }
+	// log.Nl(LogDebug)
+	// log.Commit()
 
 	var maxconn uint
 
-	transport.log.Debug(' ', "Antes BlackList")
+	// transport.log.Debug(' ', "Antes BlackList")
 
 	// Check for blacklisted device
 	if transport.quirks.GetBlacklist() {
@@ -121,15 +121,15 @@ func NewUsbTransport(desc UsbDeviceDesc) (*UsbTransport, error) {
 		goto ERROR
 	}
 
-	transport.log.Debug(' ', "Antes GetInitReset")
+	// transport.log.Debug(' ', "Antes GetInitReset")
 
 	// Hard-reset the device, if needed
 	if transport.quirks.GetInitReset() == QuirkResetHard {
-		transport.log.Debug(' ', "Doing USB HARD RESET")
+		// transport.log.Debug(' ', "Doing USB HARD RESET")
 		dev.Reset()
 	}
 
-	transport.log.Debug(' ', "Antes Configure")
+	// transport.log.Debug(' ', "Antes Configure")
 
 	// Configure the device
 	// err = dev.Configure(desc)
@@ -181,7 +181,7 @@ ERROR:
 
 // Dump quirks to the UsbTransport's log
 func (transport *UsbTransport) dumpQuirks(log *LogMessage) {
-	log.Debug(' ', "Device quirks:")
+	// log.Debug(' ', "Device quirks:")
 
 	prevMatch := ""
 	for _, q := range transport.quirks.All() {
@@ -195,8 +195,8 @@ func (transport *UsbTransport) dumpQuirks(log *LogMessage) {
 			log.Debug(' ', "  [%s]", q.Match)
 		}
 
-		log.Debug(' ', "    ; (%s)", q.Origin)
-		log.Debug(' ', "    %s = %s", q.Name, val)
+		// log.Debug(' ', "    ; (%s)", q.Origin)
+		// log.Debug(' ', "    %s = %s", q.Name, val)
 	}
 }
 
@@ -260,6 +260,7 @@ func (transport *UsbTransport) connInUse() int {
 // A zero value for t means no timeout
 func (transport *UsbTransport) SetTimeout(t time.Duration) {
 	transport.timeout = t
+	fmt.Printf("UsbTransport timeout set to %v\n", t)
 }
 
 // TimeoutExpired returns true if one or more of the preceding HTTP request
@@ -696,7 +697,7 @@ func (transport *UsbTransport) openUsbConn(
 
 	dev := transport.dev
 
-	transport.log.Debug(' ', "USB[%d]: open: %s", index, ifaddr)
+	// transport.log.Debug(' ', "USB[%d]: open: %s", index, ifaddr)
 
 	// Initialize connection structure
 	conn := &usbConn{
@@ -717,11 +718,11 @@ func (transport *UsbTransport) openUsbConn(
 
 	// Soft-reset interface, if needed
 	if quirks.GetInitReset() == QuirkResetSoft {
-		transport.log.Debug(' ', "USB[%d]: doing SOFT_RESET", index)
+		// transport.log.Debug(' ', "USB[%d]: doing SOFT_RESET", index)
 		err = conn.iface.SoftReset()
 		if err != nil {
 			// Don't treat it too seriously
-			transport.log.Info('?', "USB[%d]: SOFT_RESET: %s", index, err)
+			// transport.log.Info('?', "USB[%d]: SOFT_RESET: %s", index, err)
 		}
 	}
 
@@ -729,7 +730,7 @@ func (transport *UsbTransport) openUsbConn(
 
 	// Error: cleanup and exit
 ERROR:
-	transport.log.Error('!', "USB[%d]: %s", index, err)
+	// transport.log.Error('!', "USB[%d]: %s", index, err)
 	if conn.iface != nil {
 		conn.iface.Close()
 	}
@@ -773,15 +774,15 @@ func (conn *usbConn) Read(b []byte) (int, error) {
 		n, err := conn.iface.Recv(conn.rwctx, b)
 		conn.cntRecv += n
 
-		conn.transport.log.Add(LogTraceHTTP, '<',
-			"USB[%d]: read: wanted %d got %d total %d",
-			conn.index, len(b), n, conn.cntRecv)
+		// conn.transport.log.Add(LogTraceHTTP, '<',
+		// 	"USB[%d]: read: wanted %d got %d total %d",
+		// 	conn.index, len(b), n, conn.cntRecv)
 
-		conn.transport.log.HexDump(LogTraceUSB, '<', b[:n])
+		// conn.transport.log.HexDump(LogTraceUSB, '<', b[:n])
 
 		if err != nil {
-			conn.transport.log.Error('!',
-				"USB[%d]: recv: %s", conn.index, err)
+			// conn.transport.log.Error('!',
+			// 	"USB[%d]: recv: %s", conn.index, err)
 
 			if err == context.DeadlineExceeded {
 				// If we've got read timeout preceded
@@ -801,8 +802,8 @@ func (conn *usbConn) Read(b []byte) (int, error) {
 		}
 
 		zlpRecv = true
-		conn.transport.log.Debug(' ',
-			"USB[%d]: zero-size read", conn.index)
+		// conn.transport.log.Debug(' ',
+		// 	"USB[%d]: zero-size read", conn.index)
 
 		time.Sleep(backoff)
 		backoff += backoff / 4 // The same as backoff *= 1.25
@@ -821,15 +822,15 @@ func (conn *usbConn) Write(b []byte) (int, error) {
 	n, err := conn.iface.Send(conn.rwctx, b)
 	conn.cntSent += n
 
-	conn.transport.log.Add(LogTraceHTTP, '>',
-		"USB[%d]: write: wanted %d sent %d total %d",
-		conn.index, len(b), n, conn.cntSent)
+	// conn.transport.log.Add(LogTraceHTTP, '>',
+	// 	"USB[%d]: write: wanted %d sent %d total %d",
+	// 	conn.index, len(b), n, conn.cntSent)
 
-	conn.transport.log.HexDump(LogTraceUSB, '>', b[:n])
+	// conn.transport.log.HexDump(LogTraceUSB, '>', b[:n])
 
 	if err != nil {
-		conn.transport.log.Error('!',
-			"USB[%d]: send: %s", conn.index, err)
+		// conn.transport.log.Error('!',
+		// 	"USB[%d]: send: %s", conn.index, err)
 
 		if err == context.DeadlineExceeded {
 			atomic.StoreUint32(
@@ -849,8 +850,8 @@ func (transport *UsbTransport) usbConnGet(ctx context.Context) (*usbConn, error)
 		return nil, ctx.Err()
 	case conn := <-transport.connPool:
 		transport.connstate.gotConn(conn)
-		transport.log.Debug(' ', "USB[%d]: connection allocated, %s",
-			conn.index, transport.connstate)
+		// transport.log.Debug(' ', "USB[%d]: connection allocated, %s",
+		// 	conn.index, transport.connstate)
 
 		return conn, nil
 	}
@@ -866,8 +867,8 @@ func (conn *usbConn) put() {
 	conn.cntSent = 0
 
 	transport.connstate.putConn(conn)
-	transport.log.Debug(' ', "USB[%d]: connection released, %s",
-		conn.index, transport.connstate)
+	// transport.log.Debug(' ', "USB[%d]: connection released, %s",
+	// 	conn.index, transport.connstate)
 
 	transport.connPool <- conn
 
@@ -879,7 +880,7 @@ func (conn *usbConn) put() {
 
 // Destroy USB connection
 func (conn *usbConn) destroy() {
-	conn.transport.log.Debug(' ', "USB[%d]: closed", conn.index)
+	// conn.transport.log.Debug(' ', "USB[%d]: closed", conn.index)
 	conn.iface.Close()
 }
 
