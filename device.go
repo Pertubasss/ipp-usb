@@ -75,7 +75,15 @@ func loginIfNeeded(dev *Device, username, password string) error {
 
 	fmt.Println("Resposta do login:", string(bodyBytes))
 
+	a := resp.Cookies()
+
+	fmt.Println("Cookies recebidos após login:")
+	for _, cookie := range a {
+		fmt.Printf("- %s: %s\n", cookie.Name, cookie.Value)
+	}
+
 	if dev.HTTPClient.Jar != nil {
+
 		cookies := dev.HTTPClient.Jar.Cookies(resp.Request.URL)
 		fmt.Println("Cookies armazenados após login:")
 		for _, cookie := range cookies {
