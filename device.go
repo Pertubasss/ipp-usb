@@ -11,9 +11,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/http/cookiejar"
+	"net/url"
+	"strings"
 	// "regexp"
 	// "strings"
 )
@@ -49,18 +53,62 @@ func NewDevice(desc UsbDeviceDesc) (*Device, error) {
 	return dev, nil
 }
 
+// login web tentativa
+func loginIfNeeded(dev *Device, username, password string) error {
+	loginURL := fmt.Sprintf("http://localhost:%d/web/guest/es/websys/webArch/authForm.cgi", dev.State.HTTPPort)
+
+	form := url.Values{}
+	form.Add("userid", username)
+	form.Add("password", password)
+
+	resp, err := dev.HTTPClient.PostForm(loginURL, form)
+	if err != nil {
+		return fmt.Errorf("erro ao enviar formulário de login: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Ler corpo da resposta
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("erro ao ler resposta do login: %w", err)
+	}
+
+	fmt.Println("Resposta do login:", string(bodyBytes))
+
+	if dev.HTTPClient.Jar != nil {
+		cookies := dev.HTTPClient.Jar.Cookies(resp.Request.URL)
+		fmt.Println("Cookies armazenados após login:")
+		for _, cookie := range cookies {
+			fmt.Printf("- %s: %s\n", cookie.Name, cookie.Value)
+		}
+	} else {
+		fmt.Println("Nenhum cookie armazenado após login.")
+	}
+
+	//tentativa de validação mas acho que nao funciona
+	if strings.Contains(string(bodyBytes), "Login") && strings.Contains(string(bodyBytes), "userid") {
+		return fmt.Errorf("login falhou, página de login retornada novamente")
+	}
+
+	// Verificar o status HTTP
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("login falhou, status HTTP: %d", resp.StatusCode)
+	}
+
+	// Se o login foi bem-sucedido
+	fmt.Println("Login realizado com sucesso.")
+	return nil
+}
+
 // SendIppUsbRequest creates new Device object
 func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) {
 	dev := &Device{
 		UsbAddr: desc.UsbAddr,
 	}
 
-	//fmt.Println("Teste printLN")
-
 	var err error
 	var info UsbDeviceInfo
 	var listener net.Listener
-	// var log *LogMessage
 	var quirks Quirks
 	var responses []string
 
@@ -70,12 +118,8 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 		return nil, err
 	}
 
-	// fmt.Println("apos NewUsbTransport")
-
 	// Obtain quirks
 	quirks = dev.UsbTransport.Quirks()
-
-	// fmt.Println("apos Quirks")
 
 	// Obtain device's logger
 	dev.Log = dev.UsbTransport.Log()
@@ -84,16 +128,18 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 	info = dev.UsbTransport.UsbDeviceInfo()
 	canPrint := info.BasicCaps&UsbIppBasicCapsPrint != 0
 
-	// fmt.Println("apos UsbDeviceInfo")
-
 	// Load persistent state
 	dev.State = LoadDevState(info.Ident(), info.Comment())
 
-	// fmt.Println("apos LoadDevState")
+	// Create HTTP client for local queries with cookie support
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao criar cookie jar: %w", err)
+	}
 
-	// Create HTTP client for local queries
 	dev.HTTPClient = &http.Client{
 		Transport: dev.UsbTransport,
+		Jar:       jar, // Adiciona suporte a cookies
 	}
 
 	// Create net.Listener
@@ -102,40 +148,33 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 		goto ERROR
 	}
 
-	// fmt.Println("apos HTTPListen")
-
 	// Configure transport for init
 	dev.UsbTransport.SetTimeout(quirks.GetInitTimeout())
 
 	// Create HTTP server
 	dev.HTTPProxy = NewHTTPProxy(dev.Log, listener, dev.UsbTransport)
 
-	// fmt.Println("apos NewHTTPProxy")
-
-	// Obtain DNS-SD info for IPP
-	// log = dev.Log.Begin()
-	// defer log.Commit()
-
-	// dev.Log.Debug(' ', "apos Begin")
-
-	//uri := fmt.Sprintf("http://localhost:%d/main.asp?Lang=en-us", dev.State.HTTPPort)
+	// Realizar login
+	err = loginIfNeeded(dev, "admin", "Caiu2020")
+	if err != nil {
+		goto ERROR
+	}
 
 	for _, request := range requests {
-		// uri := fmt.Sprintf("http://localhost:%d/web/guest/es/websys/webArch/getStatus.cgi", dev.State.HTTPPort)
 		uri := fmt.Sprintf(request, dev.State.HTTPPort)
-		fmt.Printf("Uri: %s", uri)
+		fmt.Printf("Uri: %s\n", uri)
+
+		// Realizar a requisição HTTP
 		value, err := dev.HTTPClient.Get(uri)
+		canRetry := ErrIsEOF(err)
 
 		if err != nil {
-			err = fmt.Errorf("HTTP Error for request ...URI...: %s - error: %s: %s", request, err)
-			canRetry := ErrIsEOF(err)
+			err = fmt.Errorf("HTTP Error for request ...URI...: %s - error: %s", request, err)
 
 			if canRetry && canPrint && quirks.GetInitRetryPartial() {
 				dev.Log.Begin().
-					Info(' ', "Printer not ready (HTTP status %d)",
-						value.StatusCode).
-					Info(' ', "Retrying due to the %q quirk",
-						QuirkNmInitRetryPartial).
+					Info(' ', "Printer not ready (HTTP status %d)", value.StatusCode).
+					Info(' ', "Retrying due to the %q quirk", QuirkNmInitRetryPartial).
 					Commit()
 
 				err = ErrPartialInit
@@ -147,17 +186,14 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 		// Decode IPP response message
 		respData, err := ioutil.ReadAll(value.Body)
 		if err != nil {
-			err = fmt.Errorf("HTTP Error for request: %s - error: %s: %s", request, err)
+			err = fmt.Errorf("HTTP Error for request: %s - error: %s", request, err)
 			goto ERROR
 		}
 
 		value.Body.Close()
 
 		responses = append(responses, string(respData))
-		fmt.Println("Requisição concluida com sucesso para: %s", request)
-		fmt.Println()
-		// dev.Log.Debug(' ', "vai printar o retorno do equipamento:")
-		// fmt.Println(string(respData))
+		fmt.Printf("Requisição concluída com sucesso para: %s\n", request)
 	}
 
 	return responses, nil
