@@ -164,7 +164,12 @@ func loginIfNeededv2(dev *Device, user, pass string) (*LoginResult, error) {
 	fmt.Printf("Cookies recebidos do post de autenticacao a serem usados:\n")
 	for _, cookie := range resp2.Cookies() {
 		if cookie.Name == "wimsesid" || cookie.Name == "cookieOnOffChecker" {
-			cookies2 = append(cookies2, cookie)
+			cookies2 = append(cookies2, &http.Cookie{
+				Name:   cookie.Name,
+				Value:  cookie.Value,
+				Path:   "/",
+				Domain: "localhost",
+			})
 			fmt.Printf("- %s: %s\n", cookie.Name, cookie.Value)
 		}
 	}
@@ -455,7 +460,6 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 
 		// Adiciona wimToken nos cookies
 		referer := loginResult.BaseURL + loginResult.LoginPath + "mainFrame.cgi"
-
 		for _, cookie := range loginResult.SessionCookie {
 			req1.AddCookie(cookie)
 		}
