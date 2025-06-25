@@ -136,6 +136,8 @@ func loginIfNeededv2(dev *Device, user, pass string) (*LoginResult, error) {
 	req2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req2.Header.Set("Cookie", cookieHeader)
 
+	fmt.Printf("Req2 headers: %s\n", req2.Header)
+
 	dev.HTTPClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
@@ -151,6 +153,8 @@ func loginIfNeededv2(dev *Device, user, pass string) (*LoginResult, error) {
 	}
 
 	location := resp2.Header.Get("Location")
+	fmt.Printf("Location header: %s\n", location)
+
 	mainFrameRegex := regexp.MustCompile(`/mainFrame\.cgi$`)
 	if !mainFrameRegex.MatchString(location) {
 		return nil, fmt.Errorf("unexpected location header: %s", location)
@@ -456,7 +460,12 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 		referer := loginResult.BaseURL + loginResult.LoginPath + "mainFrame.cgi"
 		req1.Header.Set("Cookie", loginResult.SessionCookie)
 		req1.Header.Set("Referer", referer)
-		// req1.Header.Set("Host", referer)
+		// req1.Header.Set("Host", "localhost:60000")
+		req1.Header.Set("Accept-Language", "es")
+		req1.Header.Set("Accept-Encoding", "gzip, deflate")
+		req1.Header.Set("Upgrade-Insecure-Requests", "1")
+		req1.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+		// req1.Header.Set("Connection", "keep-alive")
 		// req1.Header.Set("Cookie", fmt.Sprintf("wimsesid=%s", wimToken))
 
 		// log req1 complete contents
