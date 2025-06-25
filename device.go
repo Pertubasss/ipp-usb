@@ -17,6 +17,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	// "regexp"
@@ -221,7 +223,24 @@ func loginIfNeededv2(dev *Device, user, pass string) (*LoginResult, error) {
 					return session, fmt.Errorf("failed to read getUnificationCounter response: %w", err)
 				}
 
-				fmt.Printf("GetUnificationCounter response: %s\n", string(counterBody))
+				exePath, err := os.Executable()
+				if err != nil {
+					fmt.Printf("Erro ao obter o caminho do executável: %s.\n", err)
+					return nil, fmt.Errorf("failed to get executable path: %w", err)
+				}
+
+				// fmt.Printf("USB Vendor: %d, Product: %d\n", vendor, product)
+				dir := filepath.Dir(exePath) // Obtém o diretório do executável
+				filePath := filepath.Join(dir, "saida_do_go_AGORAVAI.txt")
+
+				file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+				if err != nil {
+					panic(err)
+				}
+
+				// file.WriteString("teste\n\n")
+				file.WriteString(string(counterBody) + "\n")
+				file.WriteString(fmt.Sprintf("---REQUEST_\n"))
 
 				return session, nil
 			}
