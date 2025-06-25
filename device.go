@@ -10,6 +10,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -17,6 +18,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"regexp"
 	"strings"
 	// "regexp"
 	// "strings"
@@ -57,14 +59,146 @@ func NewDevice(desc UsbDeviceDesc) (*Device, error) {
 func loginIfNeeded(dev *Device, username, password string) error {
 	loginURL := fmt.Sprintf("http://localhost:%d/web/guest/es/websys/webArch/authForm.cgi", dev.State.HTTPPort)
 
-	form := url.Values{}
-	form.Add("userid", username)
-	form.Add("password", password)
-
-	resp, err := dev.HTTPClient.PostForm(loginURL, form)
+	// Realizar a requisição HTTP
+	// Criar requisição GET
+	req, err := http.NewRequest("GET", loginURL, strings.NewReader(""))
 	if err != nil {
-		return fmt.Errorf("erro ao enviar formulário de login: %w", err)
+		return fmt.Errorf("erro ao criar requisição de login: %w", err)
 	}
+
+	//validar sobre cabeçalhos!!!
+
+	// Adicionar cookies manualmente
+	req.AddCookie(&http.Cookie{
+		Name:  "cookieOnOffChecker",
+		Value: "on",
+	})
+	req.AddCookie(&http.Cookie{
+		Name:  "risessionid",
+		Value: "128319570606029", // Substitua pelo valor dinâmico, se necessário
+	})
+	req.AddCookie(&http.Cookie{
+		Name:  "wimsesid",
+		Value: "--",
+	})
+
+	// Enviar a requisição
+	value, err := dev.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("erro ao enviar requisição de login: %w", err)
+	}
+	defer value.Body.Close()
+
+	respData, err := ioutil.ReadAll(value.Body)
+	if err != nil {
+		err = fmt.Errorf("HTTP Error for request: %s - error: %s", value, err)
+		return err
+	}
+
+	re := regexp.MustCompile(`name="wimToken" value="([^"]+)"`)
+
+	// Encontrar o valor
+	match := re.FindStringSubmatch(string(respData))
+	var wimToken string
+	if len(match) > 1 {
+		wimToken = match[1] // Captura o valor do grupo 1
+		fmt.Println("wimToken capturado:", wimToken)
+	} else {
+		fmt.Println("wimToken não encontrado")
+	}
+
+	b := value.Cookies()
+
+	fmt.Println("Cookies recebidos do get:")
+	var risession string = ""
+	for _, cookie := range b {
+		if cookie.Name == "risessionid" {
+			risession = cookie.Value // Captura o valor do cookie risessionid
+			fmt.Printf("- %s: %s\n", cookie.Name, cookie.Value)
+		}
+	}
+
+	// fmt.Printf("Resposta do get de autenticacao: %s\n", string(respData))
+
+	value.Body.Close()
+
+	// Codificar username e password em Base64
+	encodedUsername := base64.StdEncoding.EncodeToString([]byte(username))
+	encodedPassword := base64.StdEncoding.EncodeToString([]byte(password))
+
+	fmt.Printf("user criptografado: %s\n", encodedUsername)
+	fmt.Printf("pass criptografado: %s\n", encodedPassword)
+
+	fmt.Printf("user: %s\n", username)
+	fmt.Printf("pass: %s\n", password)
+
+	//Cria login
+	form := url.Values{}
+	form.Add("userid", encodedUsername)
+	form.Add("password", encodedPassword)
+	form.Add("wimtoken", wimToken)
+	form.Add("userid_work", "")
+	form.Add("password_work", "")
+	form.Add("open", "")
+
+	// Cria req Post
+	//comentei pq PostForm nao deixa adicionar cookies!!!!!
+	// resp, err := dev.HTTPClient.PostForm(loginURL, form)
+	// if err != nil {
+	// 	return fmt.Errorf("erro ao enviar formulário de login: %w", err)
+	// }
+	// defer resp.Body.Close()
+
+	// Criar requisição POST
+	req2, err := http.NewRequest("POST", loginURL, strings.NewReader(form.Encode()))
+	if err != nil {
+		return fmt.Errorf("erro ao criar requisição de login: %w", err)
+	}
+
+	//validar sobre cabeçalhos!!!
+	req2.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+	req2.Header.Set("Accept-Encoding", "gzip, deflate")
+	req2.Header.Set("Accept-Language", "es")
+	req2.Header.Set("Cache-Control", "max-age=0")
+	req2.Header.Set("Connection", "keep-alive")
+	req2.Header.Set("Content-Length", fmt.Sprintf("%d", len(form.Encode())))
+	req2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req2.Header.Set("Origin", "http://192.168.10.99")
+	req2.Header.Set("Referer", "http://192.168.10.99/web/guest/es/websys/webArch/login.cgi")
+	req2.Header.Set("Upgrade-Insecure-Requests", "1")
+	req2.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0")
+
+	// Adicionar cookies manualmente
+	req2.AddCookie(&http.Cookie{
+		Name:  "cookieOnOffChecker",
+		Value: "on",
+	})
+	req2.AddCookie(&http.Cookie{
+		Name:  "risessionid",
+		Value: risession, // Substitua pelo valor dinâmico, se necessário
+	})
+	req2.AddCookie(&http.Cookie{
+		Name:  "wimsesid",
+		Value: "--",
+	})
+
+	// Enviar a requisição
+	resp, err := dev.HTTPClient.Do(req2)
+	if err != nil {
+		return fmt.Errorf("erro ao enviar requisição de login: %w", err)
+	}
+
+	// Iterar sobre os cabeçalhos
+	fmt.Println("Cabeçalhos da resposta:")
+	for key, values := range resp.Header {
+		for _, value := range values {
+			fmt.Printf("- %s: %s\n", key, value)
+		}
+	}
+
+	fmt.Println("StatusCode: ", resp.StatusCode)
+	fmt.Println("Status: ", resp.Status)
+
 	defer resp.Body.Close()
 
 	// Ler corpo da resposta
@@ -73,7 +207,7 @@ func loginIfNeeded(dev *Device, username, password string) error {
 		return fmt.Errorf("erro ao ler resposta do login: %w", err)
 	}
 
-	fmt.Println("Resposta do login:", string(bodyBytes))
+	fmt.Println("Resposta após login:", string(bodyBytes))
 
 	a := resp.Cookies()
 
