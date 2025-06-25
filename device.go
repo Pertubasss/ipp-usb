@@ -151,11 +151,18 @@ func loginIfNeededv2(dev *Device, user, pass string) (string, error) {
 		return "", fmt.Errorf("unexpected location header: %s", location)
 	}
 
+	var cookies2 []string
+	for _, cookie := range resp2.Cookies() {
+		cookies2 = append(cookies2, fmt.Sprintf("%s=%s", cookie.Name, cookie.Value))
+	}
+
+	cookieHeader2 := strings.Join(cookies, "; ")
+
 	for _, cookie := range resp2.Cookies() {
 		if cookie.Name == "wimsesid" {
 			numericRegex := regexp.MustCompile(`^\d+$`)
 			if numericRegex.MatchString(cookie.Value) {
-				return cookie.Value, nil
+				return cookieHeader2, nil
 			}
 		}
 	}
@@ -421,8 +428,10 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 			err = fmt.Errorf("failed to create request: %w", err)
 			goto ERROR
 		}
+
 		// Adiciona wimToken nos cookies
-		req1.Header.Set("Cookie", fmt.Sprintf("wimsesid=%s", wimToken))
+		req1.Header.Set("Cookie", wimToken)
+		// req1.Header.Set("Cookie", fmt.Sprintf("wimsesid=%s", wimToken))
 
 		value, err := dev.HTTPClient.Do(req1)
 
