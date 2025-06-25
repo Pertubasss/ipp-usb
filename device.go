@@ -55,7 +55,7 @@ func NewDevice(desc UsbDeviceDesc) (*Device, error) {
 }
 
 type LoginResult struct {
-	SessionCookie string
+	SessionCookie []*http.Cookie
 	BaseURL       string
 	LoginPath     string
 }
@@ -160,11 +160,11 @@ func loginIfNeededv2(dev *Device, user, pass string) (*LoginResult, error) {
 		return nil, fmt.Errorf("unexpected location header: %s", location)
 	}
 
-	var cookies2 []string
+	var cookies2 []*http.Cookie
 	fmt.Printf("Cookies recebidos do post de autenticacao a serem usados:\n")
 	for _, cookie := range resp2.Cookies() {
 		if cookie.Name == "wimsesid" || cookie.Name == "cookieOnOffChecker" {
-			cookies2 = append(cookies2, fmt.Sprintf("%s=%s", cookie.Name, cookie.Value))
+			cookies2 = append(cookies2, cookie)
 			fmt.Printf("- %s: %s\n", cookie.Name, cookie.Value)
 		}
 	}
@@ -172,11 +172,8 @@ func loginIfNeededv2(dev *Device, user, pass string) (*LoginResult, error) {
 	// print headers
 	fmt.Printf("Response Headers: %v\n", resp2.Header)
 
-	var cookieHeader2 string = ""
-	cookieHeader2 = strings.Join(cookies2, "; ")
-
 	session := &LoginResult{
-		SessionCookie: cookieHeader2,
+		SessionCookie: cookies2,
 		BaseURL:       baseURL,
 		LoginPath:     lurl,
 	}
@@ -458,7 +455,11 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 
 		// Adiciona wimToken nos cookies
 		referer := loginResult.BaseURL + loginResult.LoginPath + "mainFrame.cgi"
-		req1.Header.Set("Cookie", loginResult.SessionCookie)
+
+		for _, cookie := range loginResult.SessionCookie {
+			req1.AddCookie(cookie)
+		}
+
 		req1.Header.Set("Referer", referer)
 		// req1.Header.Set("Host", "localhost:60000")
 		req1.Header.Set("Accept-Language", "es")
