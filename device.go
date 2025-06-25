@@ -165,6 +165,9 @@ func loginIfNeededv2(dev *Device, user, pass string) (*LoginResult, error) {
 		}
 	}
 
+	// print headers
+	fmt.Printf("Response Headers: %v\n", resp2.Header)
+
 	var cookieHeader2 string = ""
 	cookieHeader2 = strings.Join(cookies2, "; ")
 
@@ -439,23 +442,26 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 
 	// [http://localhost:%d/web/guest/es/websys/status/getUnificationCounter.cgi]
 	for _, request := range requests {
-		// uri := fmt.Sprintf(request, dev.State.HTTPPort)
-		// fmt.Printf("Uri: %s\n", uri)
-
-		uri2 := loginResult.BaseURL + loginResult.LoginPath + "getUnificationCounter.cgi"
-
-		fmt.Printf("Request: %s\n", uri2)
+		uri := fmt.Sprintf(request, dev.State.HTTPPort)
+		fmt.Printf("Uri: %s\n", uri)
 
 		// Realizar a requisição HTTP
-		req1, err := http.NewRequest("GET", uri2, nil)
+		req1, err := http.NewRequest("GET", uri, nil)
 		if err != nil {
 			err = fmt.Errorf("failed to create request: %w", err)
 			goto ERROR
 		}
 
 		// Adiciona wimToken nos cookies
+		referer := loginResult.BaseURL + loginResult.LoginPath + "mainFrame.cgi"
 		req1.Header.Set("Cookie", loginResult.SessionCookie)
+		req1.Header.Set("Referer", referer)
+		// req1.Header.Set("Host", referer)
 		// req1.Header.Set("Cookie", fmt.Sprintf("wimsesid=%s", wimToken))
+
+		// log req1 complete contents
+		fmt.Printf("Request Headers: %v\n", req1.Header)
+		fmt.Printf("Request Body: %s\n", req1.Body)
 
 		value, err := dev.HTTPClient.Do(req1)
 
