@@ -55,6 +55,114 @@ func NewDevice(desc UsbDeviceDesc) (*Device, error) {
 	return dev, nil
 }
 
+func loginIfNeededv2(dev *Device, user, pass string) (string, error) {
+	baseURL := fmt.Sprintf("http://localhost:%d", dev.State.HTTPPort)
+
+	resp0, err := dev.HTTPClient.Get(baseURL + "/")
+	if err != nil || resp0.StatusCode != 200 {
+		if resp0 != nil {
+			resp0.Body.Close()
+		}
+		return "", err
+	}
+
+	body0, err := io.ReadAll(resp0.Body)
+	resp0.Body.Close()
+	if err != nil {
+		return "", err
+	}
+
+	locationRegex := regexp.MustCompile(`\Wlocation\.href\s*=\s*['"]([^'"]*/)mainFrame\.cgi['"]`)
+	matches := locationRegex.FindStringSubmatch(string(body0))
+	if len(matches) < 2 {
+		return "", fmt.Errorf("failed to extract location URL")
+	}
+	lurl := matches[1]
+
+	authURL := baseURL + lurl + "authForm.cgi"
+	req1, err := http.NewRequest("GET", authURL, nil)
+	if err != nil {
+		return "", err
+	}
+	req1.Header.Set("Cookie", "cookieOnOffChecker=on")
+
+	resp1, err := dev.HTTPClient.Do(req1)
+	if err != nil || resp1.StatusCode != 200 {
+		if resp1 != nil {
+			resp1.Body.Close()
+		}
+		return "", fmt.Errorf("failed to get authForm.cgi")
+	}
+
+	body1, err := io.ReadAll(resp1.Body)
+	resp1.Body.Close()
+	if err != nil {
+		return "", fmt.Errorf("failed to read authForm.cgi response body: %w", err)
+	}
+
+	tokenRegex := regexp.MustCompile(`<input[^>]*type\s*=\s*['"]hidden['"][^>]*name\s*=\s*['"]wimToken['"][^>]*value\s*=\s*['"]([^'"]*)['"]`)
+	tokenMatches := tokenRegex.FindStringSubmatch(string(body1))
+	if len(tokenMatches) < 2 {
+		return "", fmt.Errorf("failed to extract wimToken")
+	}
+	token := tokenMatches[1]
+
+	var cookies []string
+	for _, cookie := range resp1.Cookies() {
+		cookies = append(cookies, fmt.Sprintf("%s=%s", cookie.Name, cookie.Value))
+	}
+	cookieHeader := strings.Join(cookies, "; ")
+
+	// Step 3: POST login form
+	formData := url.Values{
+		"wimToken":      {token},
+		"userid_work":   {""},
+		"userid":        {base64.StdEncoding.EncodeToString([]byte(user))},
+		"password_work": {""},
+		"password":      {base64.StdEncoding.EncodeToString([]byte(pass))},
+		"open":          {""},
+	}
+
+	loginURL := baseURL + lurl + "login.cgi"
+	req2, err := http.NewRequest("POST", loginURL, strings.NewReader(formData.Encode()))
+	if err != nil {
+		return "", err
+	}
+	req2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req2.Header.Set("Cookie", cookieHeader)
+
+	dev.HTTPClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+
+	resp2, err := dev.HTTPClient.Do(req2)
+	if err != nil {
+		return "", err
+	}
+	defer resp2.Body.Close()
+
+	if resp2.StatusCode != 302 {
+		return "", fmt.Errorf("unexpected status code: %d", resp2.StatusCode)
+	}
+
+	location := resp2.Header.Get("Location")
+	mainFrameRegex := regexp.MustCompile(`/mainFrame\.cgi$`)
+	if !mainFrameRegex.MatchString(location) {
+		return "", fmt.Errorf("unexpected location header: %s", location)
+	}
+
+	for _, cookie := range resp2.Cookies() {
+		if cookie.Name == "wimsesid" {
+			numericRegex := regexp.MustCompile(`^\d+$`)
+			if numericRegex.MatchString(cookie.Value) {
+				return cookie.Value, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("wimsesid cookie not found or invalid")
+}
+
 // login web tentativa
 func loginIfNeeded(dev *Device, username, password string) error {
 	loginURL := fmt.Sprintf("http://localhost:%d/web/guest/es/websys/webArch/authForm.cgi", dev.State.HTTPPort)
@@ -253,6 +361,7 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 	var listener net.Listener
 	var quirks Quirks
 	var responses []string
+	var wimToken string
 
 	// Create USB transport
 	dev.UsbTransport, err = NewUsbTransport(desc)
@@ -297,7 +406,7 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 	dev.HTTPProxy = NewHTTPProxy(dev.Log, listener, dev.UsbTransport)
 
 	// Realizar login
-	err = loginIfNeeded(dev, "admin", "Caiu2020")
+	wimToken, err = loginIfNeededv2(dev, "admin", "Caiu2020")
 	if err != nil {
 		goto ERROR
 	}
@@ -307,7 +416,16 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 		fmt.Printf("Uri: %s\n", uri)
 
 		// Realizar a requisição HTTP
-		value, err := dev.HTTPClient.Get(uri)
+		req1, err := http.NewRequest("GET", uri, nil)
+		if err != nil {
+			err = fmt.Errorf("failed to create request: %w", err)
+			goto ERROR
+		}
+		// Adiciona wimToken nos cookies
+		req1.Header.Set("Cookie", fmt.Sprintf("wimsesid=%s", wimToken))
+
+		value, err := dev.HTTPClient.Do(req1)
+
 		canRetry := ErrIsEOF(err)
 
 		if err != nil {
