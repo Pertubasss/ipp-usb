@@ -16,6 +16,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"regexp"
 	"strings"
@@ -415,14 +416,14 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 	dev.State = LoadDevState(info.Ident(), info.Comment())
 
 	// Create HTTP client for local queries with cookie support
-	// jar, err := cookiejar.New(nil)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("erro ao criar cookie jar: %w", err)
-	// }
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao criar cookie jar: %w", err)
+	}
 
 	dev.HTTPClient = &http.Client{
 		Transport: dev.UsbTransport,
-		// Jar:       jar, // Adiciona suporte a cookies
+		Jar:       jar, // Adiciona suporte a cookies
 	}
 
 	// Create net.Listener
@@ -458,11 +459,16 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 			goto ERROR
 		}
 
+		requestURL, err := url.Parse(uri)
+		if err != nil {
+			err = fmt.Errorf("failed to parse request URL: %w", err)
+			goto ERROR
+		}
+
+		dev.HTTPClient.Jar.SetCookies(requestURL, loginResult.SessionCookie)
+
 		// Adiciona wimToken nos cookies
 		referer := loginResult.BaseURL + loginResult.LoginPath + "mainFrame.cgi"
-		for _, cookie := range loginResult.SessionCookie {
-			req1.AddCookie(cookie)
-		}
 
 		req1.Header.Set("Referer", referer)
 		// req1.Header.Set("Host", "localhost:60000")
