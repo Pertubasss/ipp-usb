@@ -157,10 +157,12 @@ func loginIfNeededv2(dev *Device, user, pass string) (*LoginResult, error) {
 	}
 
 	var cookies2 []string
-	fmt.Printf("Cookies recebidos do post de autenticacao:\n")
+	fmt.Printf("Cookies recebidos do post de autenticacao a serem usados:\n")
 	for _, cookie := range resp2.Cookies() {
-		cookies2 = append(cookies2, fmt.Sprintf("%s=%s", cookie.Name, cookie.Value))
-		fmt.Printf("- %s: %s\n", cookie.Name, cookie.Value)
+		if cookie.Name == "wimsesid" || cookie.Name == "cookieOnOffChecker" {
+			cookies2 = append(cookies2, fmt.Sprintf("%s=%s", cookie.Name, cookie.Value))
+			fmt.Printf("- %s: %s\n", cookie.Name, cookie.Value)
+		}
 	}
 
 	var cookieHeader2 string = ""
