@@ -16,7 +16,6 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"net/http/cookiejar"
 	"net/url"
 	"regexp"
 	"strings"
@@ -188,6 +187,42 @@ func loginIfNeededv2(dev *Device, user, pass string) (*LoginResult, error) {
 		if cookie.Name == "wimsesid" {
 			numericRegex := regexp.MustCompile(`^\d+$`)
 			if numericRegex.MatchString(cookie.Value) {
+				fmt.Printf("wimsesid cookie found: %s\n", cookie.Value)
+				counterURL := baseURL + "/web/entry/es/websys/status/getUnificationCounter.cgi"
+				req3, err := http.NewRequest("GET", counterURL, nil)
+				if err != nil {
+					return session, fmt.Errorf("failed to create getUnificationCounter request: %w", err)
+				}
+
+				// Set appropriate headers
+				req3.Header.Set("Referer", baseURL+lurl+"mainFrame.cgi")
+				req3.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+				req3.Header.Set("Accept-Language", "es")
+				req3.Header.Set("Accept-Encoding", "gzip, deflate")
+				req3.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36")
+
+				// Add the session cookies
+				for _, cookie := range cookies2 {
+					req3.AddCookie(cookie)
+				}
+
+				resp3, err := dev.HTTPClient.Do(req3)
+				if err != nil {
+					return session, fmt.Errorf("failed to get getUnificationCounter: %w", err)
+				}
+				defer resp3.Body.Close()
+
+				if resp3.StatusCode != 200 {
+					return session, fmt.Errorf("getUnificationCounter request failed with status: %d", resp3.StatusCode)
+				}
+
+				counterBody, err := io.ReadAll(resp3.Body)
+				if err != nil {
+					return session, fmt.Errorf("failed to read getUnificationCounter response: %w", err)
+				}
+
+				fmt.Printf("GetUnificationCounter response: %s\n", string(counterBody))
+
 				return session, nil
 			}
 		}
@@ -416,14 +451,14 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 	dev.State = LoadDevState(info.Ident(), info.Comment())
 
 	// Create HTTP client for local queries with cookie support
-	jar, err := cookiejar.New(nil)
-	if err != nil {
-		return nil, fmt.Errorf("erro ao criar cookie jar: %w", err)
-	}
+	// jar, err := cookiejar.New(nil)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("erro ao criar cookie jar: %w", err)
+	// }
 
 	dev.HTTPClient = &http.Client{
 		Transport: dev.UsbTransport,
-		Jar:       jar, // Adiciona suporte a cookies
+		// Jar:       jar, // Adiciona suporte a cookies
 	}
 
 	// Create net.Listener
@@ -459,29 +494,20 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 			goto ERROR
 		}
 
-		requestURL, err := url.Parse(uri)
-		if err != nil {
-			err = fmt.Errorf("failed to parse request URL: %w", err)
-			goto ERROR
-		}
-
-		dev.HTTPClient.Jar.SetCookies(requestURL, loginResult.SessionCookie)
-
 		// Adiciona wimToken nos cookies
-		referer := loginResult.BaseURL + loginResult.LoginPath + "mainFrame.cgi"
+		referer := loginResult.BaseURL + loginResult.LoginPath + "topPage.cgi"
 
 		req1.Header.Set("Referer", referer)
-		// req1.Header.Set("Host", "localhost:60000")
 		req1.Header.Set("Accept-Language", "es")
 		req1.Header.Set("Accept-Encoding", "gzip, deflate")
 		req1.Header.Set("Upgrade-Insecure-Requests", "1")
 		req1.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
-		// req1.Header.Set("Connection", "keep-alive")
-		// req1.Header.Set("Cookie", fmt.Sprintf("wimsesid=%s", wimToken))
 
-		// log req1 complete contents
+		for _, cookie := range loginResult.SessionCookie {
+			req1.AddCookie(cookie)
+		}
+
 		fmt.Printf("Request Headers: %v\n", req1.Header)
-		fmt.Printf("Request Body: %s\n", req1.Body)
 
 		value, err := dev.HTTPClient.Do(req1)
 
