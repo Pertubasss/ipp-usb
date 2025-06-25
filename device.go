@@ -16,7 +16,6 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"net/http/cookiejar"
 	"net/url"
 	"regexp"
 	"strings"
@@ -55,7 +54,13 @@ func NewDevice(desc UsbDeviceDesc) (*Device, error) {
 	return dev, nil
 }
 
-func loginIfNeededv2(dev *Device, user, pass string) (string, error) {
+type LoginResult struct {
+	SessionCookie string
+	BaseURL       string
+	LoginPath     string
+}
+
+func loginIfNeededv2(dev *Device, user, pass string) (*LoginResult, error) {
 	baseURL := fmt.Sprintf("http://localhost:%d", dev.State.HTTPPort)
 
 	resp0, err := dev.HTTPClient.Get(baseURL + "/")
@@ -63,26 +68,26 @@ func loginIfNeededv2(dev *Device, user, pass string) (string, error) {
 		if resp0 != nil {
 			resp0.Body.Close()
 		}
-		return "", err
+		return nil, err
 	}
 
 	body0, err := io.ReadAll(resp0.Body)
 	resp0.Body.Close()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	locationRegex := regexp.MustCompile(`\Wlocation\.href\s*=\s*['"]([^'"]*/)mainFrame\.cgi['"]`)
 	matches := locationRegex.FindStringSubmatch(string(body0))
 	if len(matches) < 2 {
-		return "", fmt.Errorf("failed to extract location URL")
+		return nil, fmt.Errorf("failed to extract location URL")
 	}
 	lurl := matches[1]
 
 	authURL := baseURL + lurl + "authForm.cgi"
 	req1, err := http.NewRequest("GET", authURL, nil)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	req1.Header.Set("Cookie", "cookieOnOffChecker=on")
 
@@ -91,19 +96,19 @@ func loginIfNeededv2(dev *Device, user, pass string) (string, error) {
 		if resp1 != nil {
 			resp1.Body.Close()
 		}
-		return "", fmt.Errorf("failed to get authForm.cgi")
+		return nil, fmt.Errorf("failed to get authForm.cgi")
 	}
 
 	body1, err := io.ReadAll(resp1.Body)
 	resp1.Body.Close()
 	if err != nil {
-		return "", fmt.Errorf("failed to read authForm.cgi response body: %w", err)
+		return nil, fmt.Errorf("failed to read authForm.cgi response body: %w", err)
 	}
 
 	tokenRegex := regexp.MustCompile(`<input[^>]*type\s*=\s*['"]hidden['"][^>]*name\s*=\s*['"]wimToken['"][^>]*value\s*=\s*['"]([^'"]*)['"]`)
 	tokenMatches := tokenRegex.FindStringSubmatch(string(body1))
 	if len(tokenMatches) < 2 {
-		return "", fmt.Errorf("failed to extract wimToken")
+		return nil, fmt.Errorf("failed to extract wimToken")
 	}
 	token := tokenMatches[1]
 
@@ -126,7 +131,7 @@ func loginIfNeededv2(dev *Device, user, pass string) (string, error) {
 	loginURL := baseURL + lurl + "login.cgi"
 	req2, err := http.NewRequest("POST", loginURL, strings.NewReader(formData.Encode()))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	req2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req2.Header.Set("Cookie", cookieHeader)
@@ -137,18 +142,18 @@ func loginIfNeededv2(dev *Device, user, pass string) (string, error) {
 
 	resp2, err := dev.HTTPClient.Do(req2)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer resp2.Body.Close()
 
 	if resp2.StatusCode != 302 {
-		return "", fmt.Errorf("unexpected status code: %d", resp2.StatusCode)
+		return nil, fmt.Errorf("unexpected status code: %d", resp2.StatusCode)
 	}
 
 	location := resp2.Header.Get("Location")
 	mainFrameRegex := regexp.MustCompile(`/mainFrame\.cgi$`)
 	if !mainFrameRegex.MatchString(location) {
-		return "", fmt.Errorf("unexpected location header: %s", location)
+		return nil, fmt.Errorf("unexpected location header: %s", location)
 	}
 
 	var cookies2 []string
@@ -158,18 +163,25 @@ func loginIfNeededv2(dev *Device, user, pass string) (string, error) {
 		fmt.Printf("- %s: %s\n", cookie.Name, cookie.Value)
 	}
 
-	cookieHeader2 := strings.Join(cookies2, "; ")
+	var cookieHeader2 string = ""
+	cookieHeader2 = strings.Join(cookies2, "; ")
+
+	session := &LoginResult{
+		SessionCookie: cookieHeader2,
+		BaseURL:       baseURL,
+		LoginPath:     lurl,
+	}
 
 	for _, cookie := range resp2.Cookies() {
 		if cookie.Name == "wimsesid" {
 			numericRegex := regexp.MustCompile(`^\d+$`)
 			if numericRegex.MatchString(cookie.Value) {
-				return cookieHeader2, nil
+				return session, nil
 			}
 		}
 	}
 
-	return "", fmt.Errorf("wimsesid cookie not found or invalid")
+	return session, fmt.Errorf("wimsesid cookie not found or invalid")
 }
 
 // login web tentativa
@@ -370,7 +382,7 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 	var listener net.Listener
 	var quirks Quirks
 	var responses []string
-	var wimToken string
+	var loginResult *LoginResult
 
 	// Create USB transport
 	dev.UsbTransport, err = NewUsbTransport(desc)
@@ -392,14 +404,14 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 	dev.State = LoadDevState(info.Ident(), info.Comment())
 
 	// Create HTTP client for local queries with cookie support
-	jar, err := cookiejar.New(nil)
-	if err != nil {
-		return nil, fmt.Errorf("erro ao criar cookie jar: %w", err)
-	}
+	// jar, err := cookiejar.New(nil)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("erro ao criar cookie jar: %w", err)
+	// }
 
 	dev.HTTPClient = &http.Client{
 		Transport: dev.UsbTransport,
-		Jar:       jar, // Adiciona suporte a cookies
+		// Jar:       jar, // Adiciona suporte a cookies
 	}
 
 	// Create net.Listener
@@ -415,24 +427,30 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 	dev.HTTPProxy = NewHTTPProxy(dev.Log, listener, dev.UsbTransport)
 
 	// Realizar login
-	wimToken, err = loginIfNeededv2(dev, "admin", "Caiu2020")
+	loginResult, err = loginIfNeededv2(dev, "admin", "Caiu2020")
 	if err != nil {
 		goto ERROR
 	}
 
+	// Log the wimToken
+	fmt.Printf("Cookies from login: %s\n", loginResult.SessionCookie)
+
+	// [http://localhost:%d/web/guest/es/websys/status/getUnificationCounter.cgi]
 	for _, request := range requests {
-		uri := fmt.Sprintf(request, dev.State.HTTPPort)
-		fmt.Printf("Uri: %s\n", uri)
+		// uri := fmt.Sprintf(request, dev.State.HTTPPort)
+		// fmt.Printf("Uri: %s\n", uri)
+
+		uri2 := loginResult.BaseURL + loginResult.LoginPath + "getUnificationCounter.cgi"
 
 		// Realizar a requisição HTTP
-		req1, err := http.NewRequest("GET", uri, nil)
+		req1, err := http.NewRequest("GET", uri2, nil)
 		if err != nil {
 			err = fmt.Errorf("failed to create request: %w", err)
 			goto ERROR
 		}
 
 		// Adiciona wimToken nos cookies
-		req1.Header.Set("Cookie", wimToken)
+		req1.Header.Set("Cookie", loginResult.SessionCookie)
 		// req1.Header.Set("Cookie", fmt.Sprintf("wimsesid=%s", wimToken))
 
 		value, err := dev.HTTPClient.Do(req1)
