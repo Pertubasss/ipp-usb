@@ -17,8 +17,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	// "regexp"
@@ -189,58 +187,58 @@ func loginIfNeededv2(dev *Device, user, pass string) (*LoginResult, error) {
 		if cookie.Name == "wimsesid" {
 			numericRegex := regexp.MustCompile(`^\d+$`)
 			if numericRegex.MatchString(cookie.Value) {
-				fmt.Printf("wimsesid cookie found: %s\n", cookie.Value)
-				counterURL := baseURL + "/web/entry/es/websys/status/getUnificationCounter.cgi"
-				req3, err := http.NewRequest("GET", counterURL, nil)
-				if err != nil {
-					return session, fmt.Errorf("failed to create getUnificationCounter request: %w", err)
-				}
+				// fmt.Printf("wimsesid cookie found: %s\n", cookie.Value)
+				// counterURL := baseURL + "/web/entry/es/websys/status/getUnificationCounter.cgi"
+				// req3, err := http.NewRequest("GET", counterURL, nil)
+				// if err != nil {
+				// 	return session, fmt.Errorf("failed to create getUnificationCounter request: %w", err)
+				// }
 
-				// Set appropriate headers
-				req3.Header.Set("Referer", baseURL+lurl+"mainFrame.cgi")
-				req3.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
-				req3.Header.Set("Accept-Language", "es")
-				req3.Header.Set("Accept-Encoding", "gzip, deflate")
-				req3.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36")
+				// // Set appropriate headers
+				// req3.Header.Set("Referer", baseURL+lurl+"mainFrame.cgi")
+				// req3.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+				// req3.Header.Set("Accept-Language", "es")
+				// req3.Header.Set("Accept-Encoding", "gzip, deflate")
+				// req3.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36")
 
-				// Add the session cookies
-				for _, cookie := range cookies2 {
-					req3.AddCookie(cookie)
-				}
+				// // Add the session cookies
+				// for _, cookie := range cookies2 {
+				// 	req3.AddCookie(cookie)
+				// }
 
-				resp3, err := dev.HTTPClient.Do(req3)
-				if err != nil {
-					return session, fmt.Errorf("failed to get getUnificationCounter: %w", err)
-				}
-				defer resp3.Body.Close()
+				// resp3, err := dev.HTTPClient.Do(req3)
+				// if err != nil {
+				// 	return session, fmt.Errorf("failed to get getUnificationCounter: %w", err)
+				// }
+				// defer resp3.Body.Close()
 
-				if resp3.StatusCode != 200 {
-					return session, fmt.Errorf("getUnificationCounter request failed with status: %d", resp3.StatusCode)
-				}
+				// if resp3.StatusCode != 200 {
+				// 	return session, fmt.Errorf("getUnificationCounter request failed with status: %d", resp3.StatusCode)
+				// }
 
-				counterBody, err := io.ReadAll(resp3.Body)
-				if err != nil {
-					return session, fmt.Errorf("failed to read getUnificationCounter response: %w", err)
-				}
+				// counterBody, err := io.ReadAll(resp3.Body)
+				// if err != nil {
+				// 	return session, fmt.Errorf("failed to read getUnificationCounter response: %w", err)
+				// }
 
-				exePath, err := os.Executable()
-				if err != nil {
-					fmt.Printf("Erro ao obter o caminho do executável: %s.\n", err)
-					return nil, fmt.Errorf("failed to get executable path: %w", err)
-				}
+				// exePath, err := os.Executable()
+				// if err != nil {
+				// 	fmt.Printf("Erro ao obter o caminho do executável: %s.\n", err)
+				// 	return nil, fmt.Errorf("failed to get executable path: %w", err)
+				// }
 
-				// fmt.Printf("USB Vendor: %d, Product: %d\n", vendor, product)
-				dir := filepath.Dir(exePath) // Obtém o diretório do executável
-				filePath := filepath.Join(dir, "saida_do_go_AGORAVAI.txt")
+				// // fmt.Printf("USB Vendor: %d, Product: %d\n", vendor, product)
+				// dir := filepath.Dir(exePath) // Obtém o diretório do executável
+				// filePath := filepath.Join(dir, "saida_do_go_AGORAVAI.txt")
 
-				file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-				if err != nil {
-					panic(err)
-				}
+				// file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+				// if err != nil {
+				// 	panic(err)
+				// }
 
-				// file.WriteString("teste\n\n")
-				file.WriteString(string(counterBody) + "\n")
-				file.WriteString(fmt.Sprintf("---REQUEST_\n"))
+				// // file.WriteString("teste\n\n")
+				// file.WriteString(string(counterBody) + "\n")
+				// file.WriteString(fmt.Sprintf("---REQUEST_\n"))
 
 				return session, nil
 			}
