@@ -442,6 +442,8 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 
 		uri2 := loginResult.BaseURL + loginResult.LoginPath + "getUnificationCounter.cgi"
 
+		fmt.Printf("Request: %s\n", uri2)
+
 		// Realizar a requisição HTTP
 		req1, err := http.NewRequest("GET", uri2, nil)
 		if err != nil {
