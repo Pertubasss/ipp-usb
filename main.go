@@ -192,12 +192,8 @@ func main() {
 							}
 
 							// file.WriteString("teste\n\n")
-							file.WriteString(response + "\n")
-							file.WriteString(fmt.Sprintf("---REQUEST_\n"))
-
+							file.WriteString(response)
 							file.Close()
-
-							// fmt.Printf("Resposta: %s.\n", response)
 						}
 					}
 				}

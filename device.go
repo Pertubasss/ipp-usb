@@ -17,6 +17,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	// "regexp"
@@ -146,7 +147,7 @@ func loginIfNeededv2(dev *Device, user, pass string) (*LoginResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp2.Body.Close()
+	resp2.Body.Close()
 
 	if resp2.StatusCode != 302 {
 		return nil, fmt.Errorf("unexpected status code: %d", resp2.StatusCode)
@@ -187,252 +188,12 @@ func loginIfNeededv2(dev *Device, user, pass string) (*LoginResult, error) {
 		if cookie.Name == "wimsesid" {
 			numericRegex := regexp.MustCompile(`^\d+$`)
 			if numericRegex.MatchString(cookie.Value) {
-				// fmt.Printf("wimsesid cookie found: %s\n", cookie.Value)
-				// counterURL := baseURL + "/web/entry/es/websys/status/getUnificationCounter.cgi"
-				// req3, err := http.NewRequest("GET", counterURL, nil)
-				// if err != nil {
-				// 	return session, fmt.Errorf("failed to create getUnificationCounter request: %w", err)
-				// }
-
-				// // Set appropriate headers
-				// req3.Header.Set("Referer", baseURL+lurl+"mainFrame.cgi")
-				// req3.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
-				// req3.Header.Set("Accept-Language", "es")
-				// req3.Header.Set("Accept-Encoding", "gzip, deflate")
-				// req3.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36")
-
-				// // Add the session cookies
-				// for _, cookie := range cookies2 {
-				// 	req3.AddCookie(cookie)
-				// }
-
-				// resp3, err := dev.HTTPClient.Do(req3)
-				// if err != nil {
-				// 	return session, fmt.Errorf("failed to get getUnificationCounter: %w", err)
-				// }
-				// defer resp3.Body.Close()
-
-				// if resp3.StatusCode != 200 {
-				// 	return session, fmt.Errorf("getUnificationCounter request failed with status: %d", resp3.StatusCode)
-				// }
-
-				// counterBody, err := io.ReadAll(resp3.Body)
-				// if err != nil {
-				// 	return session, fmt.Errorf("failed to read getUnificationCounter response: %w", err)
-				// }
-
-				// exePath, err := os.Executable()
-				// if err != nil {
-				// 	fmt.Printf("Erro ao obter o caminho do executável: %s.\n", err)
-				// 	return nil, fmt.Errorf("failed to get executable path: %w", err)
-				// }
-
-				// // fmt.Printf("USB Vendor: %d, Product: %d\n", vendor, product)
-				// dir := filepath.Dir(exePath) // Obtém o diretório do executável
-				// filePath := filepath.Join(dir, "saida_do_go_AGORAVAI.txt")
-
-				// file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-				// if err != nil {
-				// 	panic(err)
-				// }
-
-				// // file.WriteString("teste\n\n")
-				// file.WriteString(string(counterBody) + "\n")
-				// file.WriteString(fmt.Sprintf("---REQUEST_\n"))
-
 				return session, nil
 			}
 		}
 	}
 
 	return session, fmt.Errorf("wimsesid cookie not found or invalid")
-}
-
-// login web tentativa
-func loginIfNeeded(dev *Device, username, password string) error {
-	loginURL := fmt.Sprintf("http://localhost:%d/web/guest/es/websys/webArch/authForm.cgi", dev.State.HTTPPort)
-
-	// Realizar a requisição HTTP
-	// Criar requisição GET
-	req, err := http.NewRequest("GET", loginURL, strings.NewReader(""))
-	if err != nil {
-		return fmt.Errorf("erro ao criar requisição de login: %w", err)
-	}
-
-	//validar sobre cabeçalhos!!!
-
-	// Adicionar cookies manualmente
-	req.AddCookie(&http.Cookie{
-		Name:  "cookieOnOffChecker",
-		Value: "on",
-	})
-	req.AddCookie(&http.Cookie{
-		Name:  "risessionid",
-		Value: "128319570606029", // Substitua pelo valor dinâmico, se necessário
-	})
-	req.AddCookie(&http.Cookie{
-		Name:  "wimsesid",
-		Value: "--",
-	})
-
-	// Enviar a requisição
-	value, err := dev.HTTPClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("erro ao enviar requisição de login: %w", err)
-	}
-	defer value.Body.Close()
-
-	respData, err := ioutil.ReadAll(value.Body)
-	if err != nil {
-		err = fmt.Errorf("HTTP Error for request: %s - error: %s", value, err)
-		return err
-	}
-
-	re := regexp.MustCompile(`name="wimToken" value="([^"]+)"`)
-
-	// Encontrar o valor
-	match := re.FindStringSubmatch(string(respData))
-	var wimToken string
-	if len(match) > 1 {
-		wimToken = match[1] // Captura o valor do grupo 1
-		fmt.Println("wimToken capturado:", wimToken)
-	} else {
-		fmt.Println("wimToken não encontrado")
-	}
-
-	b := value.Cookies()
-
-	fmt.Println("Cookies recebidos do get:")
-	var risession string = ""
-	for _, cookie := range b {
-		if cookie.Name == "risessionid" {
-			risession = cookie.Value // Captura o valor do cookie risessionid
-			fmt.Printf("- %s: %s\n", cookie.Name, cookie.Value)
-		}
-	}
-
-	// fmt.Printf("Resposta do get de autenticacao: %s\n", string(respData))
-
-	value.Body.Close()
-
-	// Codificar username e password em Base64
-	encodedUsername := base64.StdEncoding.EncodeToString([]byte(username))
-	encodedPassword := base64.StdEncoding.EncodeToString([]byte(password))
-
-	fmt.Printf("user criptografado: %s\n", encodedUsername)
-	fmt.Printf("pass criptografado: %s\n", encodedPassword)
-
-	fmt.Printf("user: %s\n", username)
-	fmt.Printf("pass: %s\n", password)
-
-	//Cria login
-	form := url.Values{}
-	form.Add("userid", encodedUsername)
-	form.Add("password", encodedPassword)
-	form.Add("wimtoken", wimToken)
-	form.Add("userid_work", "")
-	form.Add("password_work", "")
-	form.Add("open", "")
-
-	// Cria req Post
-	//comentei pq PostForm nao deixa adicionar cookies!!!!!
-	// resp, err := dev.HTTPClient.PostForm(loginURL, form)
-	// if err != nil {
-	// 	return fmt.Errorf("erro ao enviar formulário de login: %w", err)
-	// }
-	// defer resp.Body.Close()
-
-	// Criar requisição POST
-	req2, err := http.NewRequest("POST", loginURL, strings.NewReader(form.Encode()))
-	if err != nil {
-		return fmt.Errorf("erro ao criar requisição de login: %w", err)
-	}
-
-	//validar sobre cabeçalhos!!!
-	req2.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
-	req2.Header.Set("Accept-Encoding", "gzip, deflate")
-	req2.Header.Set("Accept-Language", "es")
-	req2.Header.Set("Cache-Control", "max-age=0")
-	req2.Header.Set("Connection", "keep-alive")
-	req2.Header.Set("Content-Length", fmt.Sprintf("%d", len(form.Encode())))
-	req2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req2.Header.Set("Origin", "http://192.168.10.99")
-	req2.Header.Set("Referer", "http://192.168.10.99/web/guest/es/websys/webArch/login.cgi")
-	req2.Header.Set("Upgrade-Insecure-Requests", "1")
-	req2.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0")
-
-	// Adicionar cookies manualmente
-	req2.AddCookie(&http.Cookie{
-		Name:  "cookieOnOffChecker",
-		Value: "on",
-	})
-	req2.AddCookie(&http.Cookie{
-		Name:  "risessionid",
-		Value: risession, // Substitua pelo valor dinâmico, se necessário
-	})
-	req2.AddCookie(&http.Cookie{
-		Name:  "wimsesid",
-		Value: "--",
-	})
-
-	// Enviar a requisição
-	resp, err := dev.HTTPClient.Do(req2)
-	if err != nil {
-		return fmt.Errorf("erro ao enviar requisição de login: %w", err)
-	}
-
-	// Iterar sobre os cabeçalhos
-	fmt.Println("Cabeçalhos da resposta:")
-	for key, values := range resp.Header {
-		for _, value := range values {
-			fmt.Printf("- %s: %s\n", key, value)
-		}
-	}
-
-	fmt.Println("StatusCode: ", resp.StatusCode)
-	fmt.Println("Status: ", resp.Status)
-
-	defer resp.Body.Close()
-
-	// Ler corpo da resposta
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("erro ao ler resposta do login: %w", err)
-	}
-
-	fmt.Println("Resposta após login:", string(bodyBytes))
-
-	a := resp.Cookies()
-
-	fmt.Println("Cookies recebidos após login:")
-	for _, cookie := range a {
-		fmt.Printf("- %s: %s\n", cookie.Name, cookie.Value)
-	}
-
-	if dev.HTTPClient.Jar != nil {
-
-		cookies := dev.HTTPClient.Jar.Cookies(resp.Request.URL)
-		fmt.Println("Cookies armazenados após login:")
-		for _, cookie := range cookies {
-			fmt.Printf("- %s: %s\n", cookie.Name, cookie.Value)
-		}
-	} else {
-		fmt.Println("Nenhum cookie armazenado após login.")
-	}
-
-	//tentativa de validação mas acho que nao funciona
-	if strings.Contains(string(bodyBytes), "Login") && strings.Contains(string(bodyBytes), "userid") {
-		return fmt.Errorf("login falhou, página de login retornada novamente")
-	}
-
-	// Verificar o status HTTP
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("login falhou, status HTTP: %d", resp.StatusCode)
-	}
-
-	// Se o login foi bem-sucedido
-	fmt.Println("Login realizado com sucesso.")
-	return nil
 }
 
 // SendIppUsbRequest creates new Device object
@@ -448,24 +209,46 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 	var responses []string
 	var loginResult *LoginResult
 
+	file, err := os.Create("requests.txt")
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	// Escreve cada linha do slice no arquivo
+	_, err = file.WriteString(strings.Join(requests, "\n"))
+	if err != nil {
+		return nil, err
+	}
+
 	// Create USB transport
 	dev.UsbTransport, err = NewUsbTransport(desc)
 	if err != nil {
 		return nil, err
 	}
 
+	file.WriteString("passou do NewUsbTransport\n")
+
 	// Obtain quirks
 	quirks = dev.UsbTransport.Quirks()
 
+	file.WriteString("passou do Quirks\n")
+
 	// Obtain device's logger
 	dev.Log = dev.UsbTransport.Log()
+
+	file.WriteString("passou do Log\n")
 
 	// Obtain device info and derived information.
 	info = dev.UsbTransport.UsbDeviceInfo()
 	canPrint := info.BasicCaps&UsbIppBasicCapsPrint != 0
 
+	file.WriteString("passou do UsbDeviceInfo\n")
+
 	// Load persistent state
 	dev.State = LoadDevState(info.Ident(), info.Comment())
+
+	file.WriteString("passou do LoadDevState\n")
 
 	// Create HTTP client for local queries with cookie support
 	// jar, err := cookiejar.New(nil)
@@ -484,17 +267,23 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 		goto ERROR
 	}
 
+	file.WriteString("passou do HTTPListen\n")
+
 	// Configure transport for init
 	dev.UsbTransport.SetTimeout(quirks.GetInitTimeout())
 
 	// Create HTTP server
 	dev.HTTPProxy = NewHTTPProxy(dev.Log, listener, dev.UsbTransport)
 
+	file.WriteString("passou do NewHTTPProxy\n")
+
 	// Realizar login
 	loginResult, err = loginIfNeededv2(dev, "admin", "Caiu2020")
 	if err != nil {
 		goto ERROR
 	}
+
+	file.WriteString("passou do loginIfNeededv2\n")
 
 	// Log the wimToken
 	fmt.Printf("Cookies from login: %s\n", loginResult.SessionCookie)
@@ -507,11 +296,11 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 		// Realizar a requisição HTTP
 		req1, err := http.NewRequest("GET", uri, nil)
 		if err != nil {
+			file.WriteString("Falhou no NewRequest\n")
 			err = fmt.Errorf("failed to create request: %w", err)
 			goto ERROR
 		}
 
-		// Adiciona wimToken nos cookies
 		referer := loginResult.BaseURL + loginResult.LoginPath + "topPage.cgi"
 
 		req1.Header.Set("Referer", referer)
@@ -520,7 +309,9 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 		req1.Header.Set("Upgrade-Insecure-Requests", "1")
 		req1.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
 
+		//cookie de resposta do login
 		for _, cookie := range loginResult.SessionCookie {
+			fmt.Fprintf(file, "%s=%s\n", cookie.Name, cookie.Value)
 			req1.AddCookie(cookie)
 		}
 
@@ -545,12 +336,16 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 			goto ERROR
 		}
 
+		file.WriteString("antes do ReadAll\n")
+
 		// Decode IPP response message
 		respData, err := ioutil.ReadAll(value.Body)
 		if err != nil {
 			err = fmt.Errorf("HTTP Error for request: %s - error: %s", request, err)
 			goto ERROR
 		}
+
+		file.WriteString("passou do ReadAll\n")
 
 		value.Body.Close()
 
