@@ -13,8 +13,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"net"
 	"net/http"
 	"net/url"
 
@@ -148,6 +146,8 @@ func loginIfNeededv2(dev *Device, user, pass string) (*LoginResult, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	_, err = io.ReadAll(resp2.Body)
 	resp2.Body.Close()
 
 	if resp2.StatusCode != 302 {
@@ -205,7 +205,6 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 
 	var err error
 	var info UsbDeviceInfo
-	var listener net.Listener
 	var quirks Quirks
 	var responses []string
 	var loginResult *LoginResult
@@ -262,19 +261,10 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 		// Jar:       jar, // Adiciona suporte a cookies
 	}
 
-	// Create net.Listener
-	listener, err = dev.State.HTTPListen()
-	if err != nil {
-		goto ERROR
-	}
-
 	// file.WriteString("passou do HTTPListen\n")
 
 	// Configure transport for init
 	dev.UsbTransport.SetTimeout(quirks.GetInitTimeout())
-
-	// Create HTTP server
-	dev.HTTPProxy = NewHTTPProxy(dev.Log, listener, dev.UsbTransport)
 
 	// file.WriteString("passou do NewHTTPProxy\n")
 
@@ -292,7 +282,7 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 	// [http://localhost:%d/web/guest/es/websys/status/getUnificationCounter.cgi]
 	for _, request := range requests {
 		uri := fmt.Sprintf(request, dev.State.HTTPPort)
-		// fmt.Printf("Uri: %s\n", uri)
+		fmt.Printf("Uri: %s\n", uri)
 
 		// Realizar a requisição HTTP
 		req1, err := http.NewRequest("GET", uri, nil)
@@ -316,8 +306,6 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 			req1.AddCookie(cookie)
 		}
 
-		// fmt.Printf("Request Headers: %v\n", req1.Header)
-
 		value, err := dev.HTTPClient.Do(req1)
 
 		canRetry := ErrIsEOF(err)
@@ -337,16 +325,12 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 			goto ERROR
 		}
 
-		// file.WriteString("antes do ReadAll\n")
-
 		// Decode IPP response message
-		respData, err := ioutil.ReadAll(value.Body)
+		respData, err := io.ReadAll(value.Body)
 		if err != nil {
 			err = fmt.Errorf("HTTP Error for request: %s - error: %s", request, err)
 			goto ERROR
 		}
-
-		// file.WriteString("passou do ReadAll\n")
 
 		value.Body.Close()
 
@@ -368,10 +352,6 @@ ERROR:
 			reset = false
 		}
 		dev.UsbTransport.Close(reset)
-	}
-
-	if listener != nil {
-		listener.Close()
 	}
 
 	return nil, err

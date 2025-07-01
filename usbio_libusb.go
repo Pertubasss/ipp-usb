@@ -19,7 +19,7 @@ import (
 	"unsafe"
 )
 
-// #cgo LDFLAGS: -L"C:/Git/ippusb/ipp-usb/libs" -llibusb-1.0
+// #cgo LDFLAGS: -L"C:/Users/Usuario/Downloads/libusb-1.0.29/VS2022/MS64/dll" -llibusb-1.0
 // #include <libusb.h>
 //
 // int libusbHotplugCallback (libusb_context *ctx, libusb_device *device,
@@ -467,11 +467,10 @@ func UsbOpenDevice(desc UsbDeviceDesc) (*UsbDevHandle, error) {
 //   - set proper USB configuration
 //   - detach kernel driver
 func (devhandle *UsbDevHandle) Configure(desc UsbDeviceDesc) error {
-	// Detach kernel driver
-	// err := (*UsbDevHandle)(devhandle).detachKernelDriver()
-	// if err != nil {
-	// 	return err
-	// }
+	err := (*UsbDevHandle)(devhandle).detachKernelDriver()
+	if err != nil {
+		return err
+	}
 
 	// Set configuration
 	rc := C.libusb_set_configuration(
@@ -808,6 +807,11 @@ func (iface *UsbInterface) Send(ctx context.Context,
 
 	<-doneChan
 	n, err = libusbTransferStatusDecode(ctx, xfer)
+
+	delay := time.Duration(100) * time.Millisecond
+	if delay != 0 {
+		time.Sleep(delay)
+	}
 
 	return
 }

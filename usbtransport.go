@@ -66,9 +66,9 @@ func NewUsbTransport(desc UsbDeviceDesc) (*UsbTransport, error) {
 		return nil, err
 	}
 
-	transport.log.Cc(Console)
-	transport.log.ToDevFile(transport.info)
-	transport.log.SetLevels(Conf.LogDevice)
+	//transport.log.Cc(Console)
+	//transport.log.ToDevFile(transport.info)
+	//transport.log.SetLevels(Conf.LogDevice)
 
 	// Setup quirks
 	transport.quirks = Conf.Quirks.MatchByModelName(
@@ -324,9 +324,6 @@ func (transport *UsbTransport) Close(reset bool) {
 			transport.addr, transport.info.ProductName)
 		transport.dev.Reset()
 	}
-
-	// Wait until all connections become inactive
-	transport.Shutdown(context.Background())
 
 	// Destroy all connections and close the USB device
 	for _, conn := range transport.connList {
