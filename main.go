@@ -88,7 +88,7 @@ func parseArgv() *UsbArgs {
 		usage()
 	}
 
-	fmt.Printf("Vendor: %d, Product: %d, Requests: %v\n", vendor, product, requests)
+	// fmt.Printf("Vendor: %d, Product: %d, Requests: %v\n", vendor, product, requests)
 
 	usbArgs := &UsbArgs{
 		Vendor:   vendor,
@@ -177,7 +177,7 @@ func main() {
 				dir := filepath.Dir(exePath) // Obtém o diretório do executável
 				filePath := filepath.Join(dir, "saida_do_go.txt")
 
-				fmt.Printf("diretorio: %s.\n", filePath)
+				// fmt.Printf("diretorio: %s.\n", filePath)
 
 				if (vendor == usbArgs.Vendor) && (product == usbArgs.Product) {
 					responses, err := SendIppUsbRequest(desc, usbArgs.Requests)

@@ -17,7 +17,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
+
+	// "os"
 	"regexp"
 	"strings"
 	// "regexp"
@@ -137,7 +138,7 @@ func loginIfNeededv2(dev *Device, user, pass string) (*LoginResult, error) {
 	req2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req2.Header.Set("Cookie", cookieHeader)
 
-	fmt.Printf("Req2 headers: %s\n", req2.Header)
+	// fmt.Printf("Req2 headers: %s\n", req2.Header)
 
 	dev.HTTPClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 		return http.ErrUseLastResponse
@@ -154,7 +155,7 @@ func loginIfNeededv2(dev *Device, user, pass string) (*LoginResult, error) {
 	}
 
 	location := resp2.Header.Get("Location")
-	fmt.Printf("Location header: %s\n", location)
+	// fmt.Printf("Location header: %s\n", location)
 
 	mainFrameRegex := regexp.MustCompile(`/mainFrame\.cgi$`)
 	if !mainFrameRegex.MatchString(location) {
@@ -162,7 +163,7 @@ func loginIfNeededv2(dev *Device, user, pass string) (*LoginResult, error) {
 	}
 
 	var cookies2 []*http.Cookie
-	fmt.Printf("Cookies recebidos do post de autenticacao a serem usados:\n")
+	// fmt.Printf("Cookies recebidos do post de autenticacao a serem usados:\n")
 	for _, cookie := range resp2.Cookies() {
 		if cookie.Name == "wimsesid" || cookie.Name == "cookieOnOffChecker" {
 			cookies2 = append(cookies2, &http.Cookie{
@@ -171,12 +172,12 @@ func loginIfNeededv2(dev *Device, user, pass string) (*LoginResult, error) {
 				Path:   "/",
 				Domain: "localhost",
 			})
-			fmt.Printf("- %s: %s\n", cookie.Name, cookie.Value)
+			// fmt.Printf("- %s: %s\n", cookie.Name, cookie.Value)
 		}
 	}
 
 	// print headers
-	fmt.Printf("Response Headers: %v\n", resp2.Header)
+	// fmt.Printf("Response Headers: %v\n", resp2.Header)
 
 	session := &LoginResult{
 		SessionCookie: cookies2,
@@ -209,17 +210,17 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 	var responses []string
 	var loginResult *LoginResult
 
-	file, err := os.Create("requests.txt")
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
+	// file, err := os.Create("requests.txt")
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// defer file.Close()
 
 	// Escreve cada linha do slice no arquivo
-	_, err = file.WriteString(strings.Join(requests, "\n"))
-	if err != nil {
-		return nil, err
-	}
+	// _, err = file.WriteString(strings.Join(requests, "\n"))
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	// Create USB transport
 	dev.UsbTransport, err = NewUsbTransport(desc)
@@ -227,28 +228,28 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 		return nil, err
 	}
 
-	file.WriteString("passou do NewUsbTransport\n")
+	// file.WriteString("passou do NewUsbTransport\n")
 
 	// Obtain quirks
 	quirks = dev.UsbTransport.Quirks()
 
-	file.WriteString("passou do Quirks\n")
+	// file.WriteString("passou do Quirks\n")
 
 	// Obtain device's logger
 	dev.Log = dev.UsbTransport.Log()
 
-	file.WriteString("passou do Log\n")
+	// file.WriteString("passou do Log\n")
 
 	// Obtain device info and derived information.
 	info = dev.UsbTransport.UsbDeviceInfo()
 	canPrint := info.BasicCaps&UsbIppBasicCapsPrint != 0
 
-	file.WriteString("passou do UsbDeviceInfo\n")
+	// file.WriteString("passou do UsbDeviceInfo\n")
 
 	// Load persistent state
 	dev.State = LoadDevState(info.Ident(), info.Comment())
 
-	file.WriteString("passou do LoadDevState\n")
+	// file.WriteString("passou do LoadDevState\n")
 
 	// Create HTTP client for local queries with cookie support
 	// jar, err := cookiejar.New(nil)
@@ -267,7 +268,7 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 		goto ERROR
 	}
 
-	file.WriteString("passou do HTTPListen\n")
+	// file.WriteString("passou do HTTPListen\n")
 
 	// Configure transport for init
 	dev.UsbTransport.SetTimeout(quirks.GetInitTimeout())
@@ -275,7 +276,7 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 	// Create HTTP server
 	dev.HTTPProxy = NewHTTPProxy(dev.Log, listener, dev.UsbTransport)
 
-	file.WriteString("passou do NewHTTPProxy\n")
+	// file.WriteString("passou do NewHTTPProxy\n")
 
 	// Realizar login
 	loginResult, err = loginIfNeededv2(dev, "admin", "Caiu2020")
@@ -283,20 +284,20 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 		goto ERROR
 	}
 
-	file.WriteString("passou do loginIfNeededv2\n")
+	// file.WriteString("passou do loginIfNeededv2\n")
 
 	// Log the wimToken
-	fmt.Printf("Cookies from login: %s\n", loginResult.SessionCookie)
+	// fmt.Printf("Cookies from login: %s\n", loginResult.SessionCookie)
 
 	// [http://localhost:%d/web/guest/es/websys/status/getUnificationCounter.cgi]
 	for _, request := range requests {
 		uri := fmt.Sprintf(request, dev.State.HTTPPort)
-		fmt.Printf("Uri: %s\n", uri)
+		// fmt.Printf("Uri: %s\n", uri)
 
 		// Realizar a requisição HTTP
 		req1, err := http.NewRequest("GET", uri, nil)
 		if err != nil {
-			file.WriteString("Falhou no NewRequest\n")
+			// file.WriteString("Falhou no NewRequest\n")
 			err = fmt.Errorf("failed to create request: %w", err)
 			goto ERROR
 		}
@@ -311,11 +312,11 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 
 		//cookie de resposta do login
 		for _, cookie := range loginResult.SessionCookie {
-			fmt.Fprintf(file, "%s=%s\n", cookie.Name, cookie.Value)
+			// fmt.Fprintf(file, "%s=%s\n", cookie.Name, cookie.Value)
 			req1.AddCookie(cookie)
 		}
 
-		fmt.Printf("Request Headers: %v\n", req1.Header)
+		// fmt.Printf("Request Headers: %v\n", req1.Header)
 
 		value, err := dev.HTTPClient.Do(req1)
 
@@ -336,7 +337,7 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 			goto ERROR
 		}
 
-		file.WriteString("antes do ReadAll\n")
+		// file.WriteString("antes do ReadAll\n")
 
 		// Decode IPP response message
 		respData, err := ioutil.ReadAll(value.Body)
@@ -345,7 +346,7 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 			goto ERROR
 		}
 
-		file.WriteString("passou do ReadAll\n")
+		// file.WriteString("passou do ReadAll\n")
 
 		value.Body.Close()
 

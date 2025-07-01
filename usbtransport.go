@@ -260,7 +260,7 @@ func (transport *UsbTransport) connInUse() int {
 // A zero value for t means no timeout
 func (transport *UsbTransport) SetTimeout(t time.Duration) {
 	transport.timeout = t
-	fmt.Printf("UsbTransport timeout set to %v\n", t)
+	// fmt.Printf("UsbTransport timeout set to %v\n", t)
 }
 
 // TimeoutExpired returns true if one or more of the preceding HTTP request
