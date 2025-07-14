@@ -19,7 +19,7 @@ import (
 	"unsafe"
 )
 
-// #cgo LDFLAGS: -L"C:/Users/Usuario/Downloads/libusb-1.0.29/VS2022/MS64/dll" -llibusb-1.0
+// #cgo LDFLAGS: -L"C:/Git/ippusb/ipp-usb/libs" -llibusb-1.0
 // #include <libusb.h>
 //
 // int libusbHotplugCallback (libusb_context *ctx, libusb_device *device,

@@ -186,7 +186,7 @@ func main() {
 						fmt.Printf("Erro ao coletar dados: %s.\n", err)
 					} else {
 						for _, response := range responses {
-							file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY, 0644)
+							file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 							if err != nil {
 								panic(err)
 							}
