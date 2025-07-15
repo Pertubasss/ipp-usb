@@ -207,7 +207,7 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 	var info UsbDeviceInfo
 	var quirks Quirks
 	var responses []string
-	var loginResult *LoginResult
+	// var loginResult *LoginResult
 
 	// file, err := os.Create("requests.txt")
 	// if err != nil {
@@ -269,10 +269,10 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 	// file.WriteString("passou do NewHTTPProxy\n")
 
 	// Realizar login
-	loginResult, err = loginIfNeededv2(dev, "admin", "Caiu2020")
-	if err != nil {
-		goto ERROR
-	}
+	// loginResult, err = loginIfNeededv2(dev, "admin", "Caiu2020")
+	// if err != nil {
+	// 	goto ERROR
+	// }
 
 	// file.WriteString("passou do loginIfNeededv2\n")
 
@@ -292,19 +292,19 @@ func SendIppUsbRequest(desc UsbDeviceDesc, requests []string) ([]string, error) 
 			goto ERROR
 		}
 
-		referer := loginResult.BaseURL + loginResult.LoginPath + "topPage.cgi"
+		// referer := loginResult.BaseURL + loginResult.LoginPath + "topPage.cgi"
 
-		req1.Header.Set("Referer", referer)
-		req1.Header.Set("Accept-Language", "es")
-		req1.Header.Set("Accept-Encoding", "gzip, deflate")
-		req1.Header.Set("Upgrade-Insecure-Requests", "1")
-		req1.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+		// req1.Header.Set("Referer", referer)
+		// req1.Header.Set("Accept-Language", "es")
+		// req1.Header.Set("Accept-Encoding", "gzip, deflate")
+		// req1.Header.Set("Upgrade-Insecure-Requests", "1")
+		// req1.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
 
-		//cookie de resposta do login
-		for _, cookie := range loginResult.SessionCookie {
-			// fmt.Fprintf(file, "%s=%s\n", cookie.Name, cookie.Value)
-			req1.AddCookie(cookie)
-		}
+		// //cookie de resposta do login
+		// for _, cookie := range loginResult.SessionCookie {
+		// 	// fmt.Fprintf(file, "%s=%s\n", cookie.Name, cookie.Value)
+		// 	req1.AddCookie(cookie)
+		// }
 
 		value, err := dev.HTTPClient.Do(req1)
 
