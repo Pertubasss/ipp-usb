@@ -167,15 +167,10 @@ func main() {
 				vendor := desc.IfDescs[0].Vendor
 				product := desc.IfDescs[0].Product
 
-				exePath, err := os.Executable()
-				if err != nil {
-					fmt.Printf("Erro ao obter o caminho do executável: %s.\n", err)
-					return
-				}
-
 				// fmt.Printf("USB Vendor: %d, Product: %d\n", vendor, product)
-				dir := filepath.Dir(exePath) // Obtém o diretório do executável
-				filePath := filepath.Join(dir, "saida_do_go.txt")
+
+				tempDir := os.TempDir()
+				filePath := filepath.Join(tempDir, "printer_http_information.txt")
 
 				// fmt.Printf("diretorio: %s.\n", filePath)
 
